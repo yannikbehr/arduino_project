@@ -20,14 +20,14 @@ float TempSensor::measureResistor(bool verb) {
   /*
    *  + -- TempSensor ---+
    *                     |
-   *                     +---- analog in (arduino)
-   *                     |  
    *  - -- resistor 1 ---+
    *                     |
    *                     -
    *                    | | - resistor (low pass filter)
    *                     -
    *                     |
+   *                     +---- analog in (arduino)
+   *                     |  
    *  - --[capacitor]----+    (low pass filter)
    */
   float Vout = (raw * m_Vin) / 1024.0;
