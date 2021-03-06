@@ -1,0 +1,1 @@
+{"application/json": "{\"operation\" : \"create\", \"tableName\" : \"MySimpleEventsTest\", \"payload\" : {\"Item\" : {\"DateString\" : \"$context.requestTime\", \"TimeStamp\" : 133, \"myValue\" : \"$input.params().get('path').get('Weight')\"}}}"}

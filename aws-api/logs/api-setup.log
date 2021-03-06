@@ -1,0 +1,86 @@
+{
+    "apiKeySource": "HEADER", 
+    "name": "MyTestRestAPI_N6", 
+    "createdDate": 1589627486, 
+    "endpointConfiguration": {
+        "types": [
+            "EDGE"
+        ]
+    }, 
+    "id": "dpveoz1zx5"
+}
+{
+    "items": [
+        {
+            "path": "/", 
+            "id": "d1q8u1rm6k"
+        }
+    ]
+}
+{
+    "path": "/pets", 
+    "pathPart": "pets", 
+    "id": "s8nqki", 
+    "parentId": "d1q8u1rm6k"
+}
+{
+    "path": "/pets/{petId}", 
+    "pathPart": "{petId}", 
+    "id": "lw70os", 
+    "parentId": "s8nqki"
+}
+{
+    "apiKeyRequired": false, 
+    "httpMethod": "GET", 
+    "authorizationType": "NONE"
+}
+{
+    "apiKeyRequired": false, 
+    "httpMethod": "GET", 
+    "authorizationType": "NONE", 
+    "requestParameters": {
+        "method.request.path.petId": true
+    }
+}
+{
+    "statusCode": "200"
+}
+{
+    "statusCode": "200"
+}
+{
+    "passthroughBehavior": "WHEN_NO_MATCH", 
+    "timeoutInMillis": 29000, 
+    "uri": "http://petstore-demo-endpoint.execute-api.com/petstore/pets/{id}", 
+    "connectionType": "INTERNET", 
+    "httpMethod": "GET", 
+    "cacheNamespace": "s8nqki", 
+    "type": "HTTP", 
+    "cacheKeyParameters": []
+}
+{
+    "passthroughBehavior": "WHEN_NO_MATCH", 
+    "timeoutInMillis": 29000, 
+    "uri": "http://petstore-demo-endpoint.execute-api.com/petstore/pets/{id}", 
+    "connectionType": "INTERNET", 
+    "httpMethod": "GET", 
+    "cacheNamespace": "lw70os", 
+    "type": "HTTP", 
+    "requestParameters": {
+        "integration.request.path.id": "method.request.path.petId"
+    }, 
+    "cacheKeyParameters": []
+}
+{
+    "selectionPattern": "", 
+    "statusCode": "200"
+}
+{
+    "selectionPattern": "", 
+    "statusCode": "200"
+}
+{
+    "description": "First deployment", 
+    "id": "ufjk8b", 
+    "createdDate": 1589627496
+}

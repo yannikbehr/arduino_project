@@ -1,0 +1,185 @@
+{
+    "Role": {
+        "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17", 
+            "Statement": [
+                {
+                    "Action": "sts:AssumeRole", 
+                    "Effect": "Allow", 
+                    "Principal": {
+                        "Service": "lambda.amazonaws.com"
+                    }
+                }
+            ]
+        }, 
+        "RoleId": "AROA5B2UZEXYFERGGI2FK", 
+        "CreateDate": "2020-06-01T11:44:42Z", 
+        "RoleName": "lambda-ex", 
+        "Path": "/", 
+        "Arn": "arn:aws:iam::897289102832:role/lambda-ex"
+    }
+}
+{
+    "LastUpdateStatus": "Successful", 
+    "FunctionName": "MyPostToDynampDb", 
+    "LastModified": "2020-06-01T11:57:53.793+0000", 
+    "RevisionId": "75ed9c1d-f0bb-4715-9bd0-d989f2518339", 
+    "MemorySize": 128, 
+    "State": "Active", 
+    "Version": "$LATEST", 
+    "Role": "arn:aws:iam::897289102832:role/lambda-ex", 
+    "Timeout": 3, 
+    "Runtime": "python3.8", 
+    "TracingConfig": {
+        "Mode": "PassThrough"
+    }, 
+    "CodeSha256": "hHDty6CmsA2F4JUAuCtAQoDSQJrnkQcdjbNuhK7ki7U=", 
+    "Description": "", 
+    "CodeSize": 692, 
+    "FunctionArn": "arn:aws:lambda:eu-central-1:897289102832:function:MyPostToDynampDb", 
+    "Handler": "index.handler"
+}
+{
+    "Role": {
+        "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17", 
+            "Statement": [
+                {
+                    "Action": "sts:AssumeRole", 
+                    "Effect": "Allow", 
+                    "Principal": {
+                        "Service": "lambda.amazonaws.com"
+                    }
+                }
+            ]
+        }, 
+        "RoleId": "AROA5B2UZEXYI7PWOMO6J", 
+        "CreateDate": "2020-06-01T12:18:12Z", 
+        "RoleName": "lambda-ex", 
+        "Path": "/", 
+        "Arn": "arn:aws:iam::897289102832:role/lambda-ex"
+    }
+}
+{
+    "LastUpdateStatus": "Successful", 
+    "FunctionName": "MyPostToDynampDb", 
+    "LastModified": "2020-06-01T12:18:14.622+0000", 
+    "RevisionId": "f6c2d058-a426-42f6-a374-090eec2849bc", 
+    "MemorySize": 128, 
+    "State": "Active", 
+    "Version": "$LATEST", 
+    "Role": "arn:aws:iam::897289102832:role/lambda-ex", 
+    "Timeout": 3, 
+    "Runtime": "python3.8", 
+    "TracingConfig": {
+        "Mode": "PassThrough"
+    }, 
+    "CodeSha256": "N6MzuLLn+fEdi8zqCAVzRoLd8+aKRrFy6KqyZx5cwrg=", 
+    "Description": "", 
+    "CodeSize": 692, 
+    "FunctionArn": "arn:aws:lambda:eu-central-1:897289102832:function:MyPostToDynampDb", 
+    "Handler": "handler"
+}
+{
+    "Role": {
+        "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17", 
+            "Statement": [
+                {
+                    "Action": "sts:AssumeRole", 
+                    "Effect": "Allow", 
+                    "Principal": {
+                        "Service": "lambda.amazonaws.com"
+                    }
+                }
+            ]
+        }, 
+        "RoleId": "AROA5B2UZEXYJDMXRHAOD", 
+        "CreateDate": "2020-06-01T12:23:32Z", 
+        "RoleName": "lambda-ex", 
+        "Path": "/", 
+        "Arn": "arn:aws:iam::897289102832:role/lambda-ex"
+    }
+}
+{
+    "LastUpdateStatus": "Successful", 
+    "FunctionName": "MyPostToDynampDb", 
+    "LastModified": "2020-06-01T12:23:35.273+0000", 
+    "RevisionId": "1ffe3326-dac7-4f89-a13c-d42bb50b15b7", 
+    "MemorySize": 128, 
+    "State": "Active", 
+    "Version": "$LATEST", 
+    "Role": "arn:aws:iam::897289102832:role/lambda-ex", 
+    "Timeout": 3, 
+    "Runtime": "python3.8", 
+    "TracingConfig": {
+        "Mode": "PassThrough"
+    }, 
+    "CodeSha256": "DpEA0YBUoxg4xafOF1rgdsW4uGG9OYufen6GXSV/3c8=", 
+    "Description": "", 
+    "CodeSize": 692, 
+    "FunctionArn": "arn:aws:lambda:eu-central-1:897289102832:function:MyPostToDynampDb", 
+    "Handler": "lambdaFunctionOverHttps.handler"
+}
+{
+    "Role": {
+        "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17", 
+            "Statement": [
+                {
+                    "Action": "sts:AssumeRole", 
+                    "Effect": "Allow", 
+                    "Principal": {
+                        "Service": "lambda.amazonaws.com"
+                    }
+                }
+            ]
+        }, 
+        "RoleId": "AROA5B2UZEXYJQDF3FHP4", 
+        "CreateDate": "2020-06-01T12:56:53Z", 
+        "RoleName": "lambda-ex", 
+        "Path": "/", 
+        "Arn": "arn:aws:iam::897289102832:role/lambda-ex"
+    }
+}
+{
+    "LastUpdateStatus": "Successful", 
+    "FunctionName": "MyPostToDynampDb", 
+    "LastModified": "2020-06-01T12:56:57.111+0000", 
+    "RevisionId": "c3d17c48-86b0-405e-bfa3-1dd86e474735", 
+    "MemorySize": 128, 
+    "State": "Active", 
+    "Version": "$LATEST", 
+    "Role": "arn:aws:iam::897289102832:role/lambda-ex", 
+    "Timeout": 3, 
+    "Runtime": "python3.8", 
+    "TracingConfig": {
+        "Mode": "PassThrough"
+    }, 
+    "CodeSha256": "FEUi+jpWkQzX6N9erH5C/RJpItG8azw2oaqYhO0LTwo=", 
+    "Description": "", 
+    "CodeSize": 692, 
+    "FunctionArn": "arn:aws:lambda:eu-central-1:897289102832:function:MyPostToDynampDb", 
+    "Handler": "lambdaFunctionOverHttps.handler"
+}
+{
+    "Role": {
+        "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17", 
+            "Statement": [
+                {
+                    "Action": "sts:AssumeRole", 
+                    "Effect": "Allow", 
+                    "Principal": {
+                        "Service": "lambda.amazonaws.com"
+                    }
+                }
+            ]
+        }, 
+        "RoleId": "AROA5B2UZEXYCKTLF7BGP", 
+        "CreateDate": "2020-06-01T13:05:25Z", 
+        "RoleName": "lambda-ex", 
+        "Path": "/", 
+        "Arn": "arn:aws:iam::897289102832:role/lambda-ex"
+    }
+}

@@ -1,0 +1,13 @@
+{ 
+  "operation":"create",
+  "tableName":"MySimpleEventsTest",
+  "payload": 
+  { 
+	"Item": 
+	{
+	  "StringValue": "viaAPI_again", 
+	  "TimeStamp": 1313131, 
+	  "myValue" : "17.432"
+	}
+  }
+}
