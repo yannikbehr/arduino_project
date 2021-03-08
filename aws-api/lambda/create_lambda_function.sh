@@ -12,7 +12,8 @@ lambda_remove(){
 	aws iam detach-role-policy --role-name ${roleName} --policy-arn arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess || echo "could not detach policy"
 	aws iam delete-role --role-name ${roleName} || echo "could not delete role"
 	aws lambda delete-function --function-name ${functionName} || echo "could not delete function"
-	rm $fn_lambda_id_store
+	rm -f $zipName
+	rm -f $fn_lambda_id_store
 }
 
 
@@ -22,10 +23,14 @@ lambda_create(){
 		echo "Usage: lambda_create <region>"
 		return 
 	fi
-	zip $zipName lambdaFunctionOverHttps.py 1>/dev/null
+	mkdir -p $(dirname $zipName)
+	#pip install requests -t $(dirname $zipName)
+	zip $zipName -j lambda/lambdaFunctionOverHttps.py 1>&2 # /dev/null
 
 	lambdaRoleArn=$(aws iam create-role --role-name ${roleName} --assume-role-policy-document '{"Version": "2012-10-17","Statement": [{ "Effect": "Allow", "Principal": {"Service": "lambda.amazonaws.com"}, "Action": "sts:AssumeRole"}]}' | tee -a $lambda_log_file | jq -r '.Role | .Arn')
-	
+		
+
+	sleep 20 # there is often an error when aws does not have a few seconds before attaching policies to a new role
 	aws iam attach-role-policy --role-name ${roleName} --policy-arn arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
 	aws iam attach-role-policy --role-name ${roleName} --policy-arn arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess
 	#arn:aws:iam::000000000000:role/service-role/MyRoleName
@@ -71,5 +76,9 @@ lambda_get_uri(){
 lambda_test(){
 	#test:
 	#echo "aws lambda invoke --function-name $functionName out --log-type Tail --payload fileb://test_lambda/input.txt"
-	aws lambda invoke --function-name $functionName out --log-type Tail --payload '{"operation" : "create", "payload" : {"Item": {"StringValue": "myItem", "TimeStamp": 1232, "myValue" : "17.432" }}, "tableName": "MySimpleEventsTest"}'
+	#aws lambda invoke --function-name $functionName out --log-type Tail --payload '{"operation" : "create", "payload" : {"Item": {"StringValue": "myItem", "TimeStamp": 1232, "myValue" : "17.432" }}, "tableName": "MySimpleEventsTest"}'
+	local partitionKey=$(default_partition_key)
+	local sortKey=$(default_sort_key)
+	#aws lambda invoke --function-name $functionName out --log-type Tail --payload '{"operation" : "create", "payload" :{"Item": { "myPartitionKey": "TestPartitionKey", "mySortKey":"TestSortKey", "MyValue": "1.741"}},"tableName": "MyBeeDataTable"}'
+	aws lambda invoke --function-name $functionName out --log-type Tail --payload fileb://lambda/test.json
 }

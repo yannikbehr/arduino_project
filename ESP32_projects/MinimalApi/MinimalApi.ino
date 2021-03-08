@@ -14,25 +14,43 @@ MyWiFi wifi(ssid, password);
 
 const int led = 13;
 int extLED = 0;
-bool postToDyDB = false;
+bool postToDyDB = true;
 
 // http client functionality
 //#include <HTTPClient.h>
 #include "DyDBConnect.h"
-DyDBConnect DyDB(String("https://td5hgmj3n8.execute-api.eu-central-1.amazonaws.com/test2"));
+DyDBConnect DyDB(String("https://t0unry1mdj.execute-api.eu-west-3.amazonaws.com/test1"));
 
-//void httpClientConnect() {
-//
-//  Serial.print("[HTTP] begin...\n");
-//  // configure traged server and url
-//  //http.begin("http://example.com/index.html"); //HTTP
-//  postMessage(1.732);
-//
-//  server.send(200, "text/plain", "Message posted");
-//}
+// waegezelle
+HX711 wz;
+int pin1 = 33;
+int pin2 = 25;
 
 int tmpPin = 35;
 void setup(void) {
+  pinMode(pin1, INPUT);
+  pinMode(pin2, INPUT);
+  Serial.begin(115200);
+  wz.begin(pin1, pin2);
+  wz.wait_ready();
+  Serial.println("Now doing tara ... ");
+  //wz.tare(20);
+  //for (int i=0; i<10; i++){
+  //    my_print("Tara in %i seconds\n", 10-i);
+  //    delay(1000);
+  //}
+  //Serial.println("Now put the weight... ");
+  //delay(20000);
+  //Serial.println("Now calibrating ... ");
+  //wz.callibrate_scale(2012, 20);
+  //Serial.println("Done");
+
+  //float scale = wz.get_scale();
+  //long  offset = wz.get_offset();
+  //my_print("Scale: %f, offset:%i \n", scale, offset);
+  wz.set_offset(8333370);
+  wz.set_scale(-13.70);
+  
   pinMode(led, OUTPUT);
   pinMode(extLED, OUTPUT);
   pinMode(tmpPin, INPUT);
@@ -56,17 +74,21 @@ void setup(void) {
 int num=0;
 float cnt=0.0;
 void loop(void) {
-  WebS.handleClient();
+  //WebS.handleClient();
   
-  int i=analogRead(tmpPin);
-  if (num % 1000 == 0){
-    Serial.print("analogRead: ");
-    Serial.println(i);
-  }
-  if (num++ %50000 ==0 && postToDyDB){
-    //cnt+=1.111111111;
-    cnt = i;
-    DyDB.get(String("/DyDB/"), cnt);
-  }
+  wz.wait_ready();
+  int j = wz.get_units(20);
+  
+  Serial.print("post to DyDB: ");
+  Serial.println(j);
+  DyDB.get(String("/DyDB/WeightKg/"), j);
+
   delay(10);
+
+  int uS_TO_S_FACTOR = 1000000; // comvert to micro seconds
+  int sleep_s = 300; // time to sleep in seconds
+  esp_sleep_enable_timer_wakeup(sleep_s * uS_TO_S_FACTOR);
+  Serial.println("Setup ESP32 to sleep for every " + String(sleep_s) +
+  " Seconds");
+  esp_deep_sleep_start();
 }

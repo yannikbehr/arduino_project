@@ -4,6 +4,7 @@ log_file=.deploy/api_service.log
 tableName=APIMetaData
 
 API_create() {
+	echo $tableName 1>&2
 	usage="API_create <region>"
 	local region=$1
 	if [ -z $region ]; then 
@@ -12,6 +13,7 @@ API_create() {
 		return 
 	fi
 	source DyDB/DyDB_object.sh
+	echo $tableName 1>&2
 	if $(DyDB_table_exists $tableName) ; then 
 		echo "API_create: table \"$tableName\" already exists"
 		return

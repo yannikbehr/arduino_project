@@ -883,3 +883,213 @@
     "FunctionArn": "arn:aws:lambda:eu-central-1:897289102832:function:MyPostToDynampDb", 
     "Handler": "lambdaFunctionOverHttps.handler"
 }
+{
+    "Role": {
+        "Path": "/",
+        "RoleName": "lambda-ex",
+        "RoleId": "AROASAC64F44WSRTAJOO7",
+        "Arn": "arn:aws:iam::137637932857:role/lambda-ex",
+        "CreateDate": "2021-03-06T14:28:05+00:00",
+        "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {
+                        "Service": "lambda.amazonaws.com"
+                    },
+                    "Action": "sts:AssumeRole"
+                }
+            ]
+        }
+    }
+}
+{
+    "Role": {
+        "Path": "/",
+        "RoleName": "lambda-ex",
+        "RoleId": "AROASAC64F44TE5KSINEM",
+        "Arn": "arn:aws:iam::137637932857:role/lambda-ex",
+        "CreateDate": "2021-03-06T14:30:33+00:00",
+        "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {
+                        "Service": "lambda.amazonaws.com"
+                    },
+                    "Action": "sts:AssumeRole"
+                }
+            ]
+        }
+    }
+}
+{
+    "Role": {
+        "Path": "/",
+        "RoleName": "lambda-ex",
+        "RoleId": "AROASAC64F44XI2U6KGVC",
+        "Arn": "arn:aws:iam::137637932857:role/lambda-ex",
+        "CreateDate": "2021-03-06T14:32:30+00:00",
+        "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {
+                        "Service": "lambda.amazonaws.com"
+                    },
+                    "Action": "sts:AssumeRole"
+                }
+            ]
+        }
+    }
+}
+{
+    "FunctionName": "MyPostToDynampDb",
+    "FunctionArn": "arn:aws:lambda:eu-west-3:137637932857:function:MyPostToDynampDb",
+    "Runtime": "python3.8",
+    "Role": "arn:aws:iam::137637932857:role/lambda-ex",
+    "Handler": "lambdaFunctionOverHttps.handler",
+    "CodeSize": 706,
+    "Description": "",
+    "Timeout": 3,
+    "MemorySize": 128,
+    "LastModified": "2021-03-06T14:32:44.967+0000",
+    "CodeSha256": "yAnG6Ac/RvcB5bESFne7aHc3QZy+Be6yxbGHgMmRQLo=",
+    "Version": "$LATEST",
+    "TracingConfig": {
+        "Mode": "PassThrough"
+    },
+    "RevisionId": "6619d317-2170-4f69-b370-48be17c5663a",
+    "State": "Active",
+    "LastUpdateStatus": "Successful",
+    "PackageType": "Zip"
+}
+{
+    "Role": {
+        "Path": "/",
+        "RoleName": "lambda-ex",
+        "RoleId": "AROASAC64F442V36RY7ZH",
+        "Arn": "arn:aws:iam::137637932857:role/lambda-ex",
+        "CreateDate": "2021-03-07T08:00:03+00:00",
+        "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {
+                        "Service": "lambda.amazonaws.com"
+                    },
+                    "Action": "sts:AssumeRole"
+                }
+            ]
+        }
+    }
+}
+{
+    "Role": {
+        "Path": "/",
+        "RoleName": "lambda-ex",
+        "RoleId": "AROASAC64F44XWEDATMM5",
+        "Arn": "arn:aws:iam::137637932857:role/lambda-ex",
+        "CreateDate": "2021-03-07T08:04:55+00:00",
+        "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {
+                        "Service": "lambda.amazonaws.com"
+                    },
+                    "Action": "sts:AssumeRole"
+                }
+            ]
+        }
+    }
+}
+{
+    "Role": {
+        "Path": "/",
+        "RoleName": "lambda-ex",
+        "RoleId": "AROASAC64F44YN6Z3YJVZ",
+        "Arn": "arn:aws:iam::137637932857:role/lambda-ex",
+        "CreateDate": "2021-03-07T08:07:18+00:00",
+        "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {
+                        "Service": "lambda.amazonaws.com"
+                    },
+                    "Action": "sts:AssumeRole"
+                }
+            ]
+        }
+    }
+}
+{
+    "FunctionName": "MyPostToDynampDb",
+    "FunctionArn": "arn:aws:lambda:eu-west-3:137637932857:function:MyPostToDynampDb",
+    "Runtime": "python3.8",
+    "Role": "arn:aws:iam::137637932857:role/lambda-ex",
+    "Handler": "lambdaFunctionOverHttps.handler",
+    "CodeSize": 706,
+    "Description": "",
+    "Timeout": 3,
+    "MemorySize": 128,
+    "LastModified": "2021-03-07T08:07:41.084+0000",
+    "CodeSha256": "yAnG6Ac/RvcB5bESFne7aHc3QZy+Be6yxbGHgMmRQLo=",
+    "Version": "$LATEST",
+    "TracingConfig": {
+        "Mode": "PassThrough"
+    },
+    "RevisionId": "aa8ec1d9-f380-438c-8142-33fda383f800",
+    "State": "Active",
+    "LastUpdateStatus": "Successful",
+    "PackageType": "Zip"
+}
+{
+    "Role": {
+        "Path": "/",
+        "RoleName": "lambda-ex",
+        "RoleId": "AROASAC64F443IQXFQ55V",
+        "Arn": "arn:aws:iam::137637932857:role/lambda-ex",
+        "CreateDate": "2021-03-07T08:42:07+00:00",
+        "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {
+                        "Service": "lambda.amazonaws.com"
+                    },
+                    "Action": "sts:AssumeRole"
+                }
+            ]
+        }
+    }
+}
+{
+    "FunctionName": "MyPostToDynampDb",
+    "FunctionArn": "arn:aws:lambda:eu-west-3:137637932857:function:MyPostToDynampDb",
+    "Runtime": "python3.8",
+    "Role": "arn:aws:iam::137637932857:role/lambda-ex",
+    "Handler": "lambdaFunctionOverHttps.handler",
+    "CodeSize": 692,
+    "Description": "",
+    "Timeout": 3,
+    "MemorySize": 128,
+    "LastModified": "2021-03-07T08:45:59.864+0000",
+    "CodeSha256": "s3ffq3uHyOV6K0CPqX1XbksEZG/rvyHwk8q+4+yQhFo=",
+    "Version": "$LATEST",
+    "TracingConfig": {
+        "Mode": "PassThrough"
+    },
+    "RevisionId": "8758477b-cf77-45d0-b051-ae554179fa01",
+    "State": "Active",
+    "LastUpdateStatus": "Successful",
+    "PackageType": "Zip"
+}

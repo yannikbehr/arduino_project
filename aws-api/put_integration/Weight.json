@@ -1,1 +1,1 @@
-{"application/json": "{\"operation\" : \"create\", \"tableName\" : \"MySimpleEventsTest\", \"payload\" : {\"Item\" : {\"DateString\" : \"$context.requestTime\", \"TimeStamp\" : 133, \"myValue\" : \"$input.params().get('path').get('Weight')\"}}}"}
+{"application/json": "{\"operation\" : \"create\", \"tableName\" : \"MyBeeDataTable\", \"payload\" : {\"Item\" : {\"mySortKey\" : \"WeightSort_$context.requestTime\", \"myPartitionKey\" : \"WeightKg\", \"MyValue\" : \"$input.params().get('path').get('Weight')\"}}}"}

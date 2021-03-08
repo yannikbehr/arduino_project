@@ -5,10 +5,10 @@ set -ex
 
 option=$1
 
-region="eu-central-1"
+region="eu-west-3"
 log_file=logs/api-DyDb-setup.log
-account=897289102832
-stage=test2
+account=137637932857
+stage=test1
 dataTableName=MyBeeDataTable
 
 rm -f $log_file

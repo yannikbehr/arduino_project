@@ -14,7 +14,7 @@ default_sort_key(){
 
 
 DyDB_create_table(){
-	tableName=$1 ; shift
+	local tableName=$1 ; shift
 	if [ -z "$tableName" ]; then 
 		echo "USAGE: DyDB_table_create <tableName> [partitionKey] [sortKey]"
 		return
@@ -42,7 +42,7 @@ DyDB_list_tables(){
 }
 
 DyDB_table_exists(){
-	tableName=$1
+	local tableName=$1
 	if [ -z "${tableName}" ]; then 
 		echo "USAGE: DyDB_table_exists <tableName> value"
 		return
@@ -56,17 +56,17 @@ DyDB_table_exists(){
 }
 
 DyDB_query(){
-	usage="USAGE: DyDB_query <tableName> <sortKeyPrefix> [--partition <partitionKey>] [--raw-output]"
+	local usage="USAGE: DyDB_query <tableName> <sortKeyPrefix> [--partition <partitionKey>] [--raw-output]"
 	#default values
-	raw_output="false"
-	partition=$(default_partition)
+	local raw_output="false"
+	local partition=$(default_partition)
 
-	tableName=$1 ; shift
+	local tableName=$1 ; shift
 	if [ -z "${tableName}" ]; then 
 		echo $usage
 		return
 	fi
-	value=$1 ; shift
+	local value=$1 ; shift
 	if [ -z "${value}" ]; then 
 		echo $usage
 		return

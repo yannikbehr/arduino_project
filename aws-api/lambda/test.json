@@ -1,0 +1,13 @@
+{
+    "operation" : "create", 
+    "payload" : 
+    {
+        "Item": 
+        {
+            "myPartitionKey": "TestPartitionKey", 
+            "mySortKey":"TestSortKey1", 
+            "MyValue": "1.744"
+        }
+    },
+	"tableName": "MyBeeDataTable" 
+}
