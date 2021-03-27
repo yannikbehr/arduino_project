@@ -1,24 +1,24 @@
 /**************************************************************
- *
- * This sketch connects to a website and downloads a page.
- * It can be used to perform HTTP/RESTful API calls.
- *
- * For this example, you need to install ArduinoHttpClient library:
- *   https://github.com/arduino-libraries/ArduinoHttpClient
- *   or from http://librarymanager/all#ArduinoHttpClient
- *
- * TinyGSM Getting Started guide:
- *   https://tiny.cc/tinygsm-readme
- *
- * SSL/TLS is not yet supported on the Quectel modems
- * The A6/A7/A20 and M590 are not capable of SSL/TLS
- *
- * For more HTTP API examples, see ArduinoHttpClient library
- *
- * NOTE: This example may NOT work with the XBee because the
- * HttpClient library does not empty to serial buffer fast enough
- * and the buffer overflow causes the HttpClient library to stall.
- * Boards with faster processors may work, 8MHz boards will not.
+
+   This sketch connects to a website and downloads a page.
+   It can be used to perform HTTP/RESTful API calls.
+
+   For this example, you need to install ArduinoHttpClient library:
+     https://github.com/arduino-libraries/ArduinoHttpClient
+     or from http://librarymanager/all#ArduinoHttpClient
+
+   TinyGSM Getting Started guide:
+     https://tiny.cc/tinygsm-readme
+
+   SSL/TLS is not yet supported on the Quectel modems
+   The A6/A7/A20 and M590 are not capable of SSL/TLS
+
+   For more HTTP API examples, see ArduinoHttpClient library
+
+   NOTE: This example may NOT work with the XBee because the
+   HttpClient library does not empty to serial buffer fast enough
+   and the buffer overflow causes the HttpClient library to stall.
+   Boards with faster processors may work, 8MHz boards will not.
  **************************************************************/
 
 // Select your modem:
@@ -35,6 +35,8 @@
 #define MODEM_POWER_ON       23
 #define MODEM_TX             27
 #define MODEM_RX             26
+
+//#define TINY_GSM_SSL_CLIENT_AUTHENTICATION 1 // this was just to try
 
 // Set serial for debug console (to the Serial Monitor, default speed 115200)
 #define SerialMon Serial
@@ -56,7 +58,7 @@
 #endif
 
 // See all AT commands, if wanted
-// #define DUMP_AT_COMMANDS
+#define DUMP_AT_COMMANDS
 
 // Define the serial console for debug prints, if needed
 #define TINY_GSM_DEBUG SerialMon
@@ -67,7 +69,7 @@
 #define GSM_AUTOBAUD_MAX 115200
 
 // Add a reception delay - may be needed for a fast processor at a slow baud rate
-// #define TINY_GSM_YIELD() { delay(2); }
+#define TINY_GSM_YIELD() { delay(2); }
 
 // Define how you're planning to connect to the internet
 #define TINY_GSM_USE_GPRS true
@@ -90,10 +92,13 @@ const char wifiPass[] = "YourWiFiPass";
 
 // Server details
 //const char server[] = "t0unry1mdj.execute-api.eu-west-3.amazonaws.com";
-const char server[] = "example.com";
+//const char server[] = "example.com";
+const char server[] = "d29s56othfawu8.cloudfront.net";
 const char resource[] = "/test1/DyDB/WeightKg/777.7";
-//const char resource[] = "/test/"; 
-const int  port       = 443;
+//const char resource[] = "/test/";
+//const int  port       = 443; // confirmed with curl
+const int port = 80 ; // for cloudfront
+//const int  port       = 8443; // not handled
 
 #include <TinyGsmClient.h>
 #include <ArduinoHttpClient.h>
@@ -120,8 +125,9 @@ TinyGsm        modem(debugger);
 TinyGsm modem(SerialAT);
 #endif
 
-TinyGsmClientSecure client(modem);
-HttpClient          http(client, server, port);
+//TinyGsmClientSecure client(modem);
+TinyGsmClient client(modem);
+HttpClient http(client, server, port);
 
 void setup() {
   // Set console baud rate
@@ -143,14 +149,19 @@ void setup() {
   // Set GSM module baud rate
   //TinyGsmAutoBaud(SerialAT, GSM_AUTOBAUD_MIN, GSM_AUTOBAUD_MAX);
   // SerialAT.begin(9600);
-  SerialAT.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
-  delay(6000);
+  //SerialAT.begin(115200, SERIAL_8N1, MODEM_RX, MODEM_TX);
+  //delay(6000);
+
+  SerialAT.begin(9600, SERIAL_8N1, MODEM_RX, MODEM_TX);
+  modem.setBaud(9600);
 
   // Restart takes quite some time
   // To skip it, call init() instead of restart()
   SerialMon.println("Initializing modem...");
-  modem.restart();
+  //modem.restart();
   // modem.init();
+  modem.begin();
+  delay(10000);
 
   String modemInfo = modem.getModemInfo();
   SerialMon.print("Modem Info: ");
@@ -197,23 +208,23 @@ void loop() {
 
 #if TINY_GSM_USE_GPRS
   // GPRS connection parameters are usually set after network registration
-    SerialMon.print(F("Connecting to "));
-    SerialMon.print(apn);
-    if (!modem.gprsConnect(apn, gprsUser, gprsPass)) {
-      SerialMon.println(" fail");
-      delay(10000);
-      return;
-    }
-    SerialMon.println(" success");
+  SerialMon.print(F("Connecting to "));
+  SerialMon.print(apn);
+  if (!modem.gprsConnect(apn, gprsUser, gprsPass)) {
+    SerialMon.println(" fail");
+    delay(10000);
+    return;
+  }
+  SerialMon.println(" success");
 
-    if (modem.isGprsConnected()) {
-      SerialMon.println("GPRS connected");
-    }
+  if (modem.isGprsConnected()) {
+    SerialMon.println("GPRS connected");
+  }
 #endif
 
   SerialMon.print(F("Performing HTTPS GET request: "));
   SerialMon.print(String("server: ") + server + " port: " + port + " resource: " + resource + " ... ");
-  http.connectionKeepAlive();  // Currently, this is needed for HTTPS
+  //http.connectionKeepAlive();  // Currently, this is needed for HTTPS
   int err = http.get(resource);
   if (err != 0) {
     SerialMon.println(String("failed to connect. Error: ") + String(err));
@@ -221,6 +232,7 @@ void loop() {
     return;
   }
 
+  
   int status = http.responseStatusCode();
   SerialMon.print(F("Response status code: "));
   SerialMon.println(status);
@@ -256,14 +268,14 @@ void loop() {
 
   http.stop();
   SerialMon.println(F("Server disconnected"));
-
+  
 #if TINY_GSM_USE_WIFI
-    modem.networkDisconnect();
-    SerialMon.println(F("WiFi disconnected"));
+  modem.networkDisconnect();
+  SerialMon.println(F("WiFi disconnected"));
 #endif
 #if TINY_GSM_USE_GPRS
-    modem.gprsDisconnect();
-    SerialMon.println(F("GPRS disconnected"));
+  modem.gprsDisconnect();
+  SerialMon.println(F("GPRS disconnected"));
 #endif
 
   // Do nothing forevermore
