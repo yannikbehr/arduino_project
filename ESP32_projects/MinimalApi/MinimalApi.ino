@@ -189,6 +189,7 @@ void loop(void) {
     Serial.println(String("wz: ") + j);
     if (j>0)
       break;
+    delay(10000);
   }
 
   Serial.print("post to DyDB: ");
