@@ -1,3 +1,4 @@
 logs/*
 deploy/api_service.log
 deploy/api_service.sh
+.DS_Store
