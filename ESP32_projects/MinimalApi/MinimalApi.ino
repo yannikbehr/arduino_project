@@ -7,7 +7,9 @@ const int led = 13;
 int extLED = 0;
 
 const char server[] = "d29s56othfawu8.cloudfront.net";
+//const char server[] = "example.com";
 const char resource[] = "/test1/DyDB/WeightKg/";
+//const char resource[] = "/";
 const int port = 80 ;
 
 // Modemsetup and pins
@@ -32,9 +34,14 @@ const int port = 80 ;
 // GSM settings
 #define GSM_PIN ""
 // Your GPRS credentials (leave empty, if not needed)
-const char apn[]      = "internet.eplus.de"; // APN (example: internet.vodafone.pt) use https://wiki.apnchanger.org
-const char gprsUser[] = "eplus"; // GPRS User
-const char gprsPass[] = "gprs"; // GPRS Password
+//const char apn[]      = "internet.eplus.de"; // APN (example: internet.vodafone.pt) use https://wiki.apnchanger.org
+//const char gprsUser[] = "eplus"; // GPRS User
+//const char gprsPass[] = "gprs"; // GPRS Password
+
+const char apn[]      = "internet";
+const char gprsUser[] = ""; // GPRS User
+const char gprsPass[] = ""; // GPRS Password
+
 // SIM card PIN (leave empty, if not defined)
 const char simPIN[]   = "";
 
@@ -224,10 +231,11 @@ void loop(void) {
       Serial.println("Network connected");
     }
 
-    Serial.print(F("Connecting to "));
+    Serial.print(F("Connecting to \""));
     Serial.print(apn);
+    Serial.print(F("\":"));
     if (!modem.gprsConnect(apn, gprsUser, gprsPass)) {
-      Serial.println(" fail");
+      Serial.println(" failure");
       delay(10000);
       return;
     }
@@ -247,8 +255,8 @@ void loop(void) {
     int http_err = http.get(resource_cmp);
     if (http_err != 0) {
       Serial.println(String("failed to connect. Error: ") + String(http_err));
-      delay(10000);
-      return;
+      //delay(10000);
+      //return;
     }
 
     http.stop();
