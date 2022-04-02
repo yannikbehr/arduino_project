@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-dateStart = as.Date('2021-05-15')
+dateStart = as.Date('2022-02-27')
 dateEnd = Sys.Date()
 
 data = character()
@@ -37,7 +37,8 @@ mydates <- do.call("c", dd)
 
 df = data.frame(times = mydates, val=as.numeric(datF[1, ]), stringsAsFactors=F, row.names=NULL)
 
-idx = mydates > strptime("01/June/2021:06:09:38",format='%d/%B/%Y:%H:%M:%S') & datF[1, ] != 1000
+idx = mydates > strptime("03/June/2021:06:7:38",format='%d/%B/%Y:%H:%M:%S') & datF[1, ] != 1000
+#idx = mydates > strptime("20/June/2021:06:7:38",format='%d/%B/%Y:%H:%M:%S') & datF[1, ] != 1000
 mydates = mydates + 2 * 3600 # times seem to be two hours off for som reason
 
 df = df[idx, ]

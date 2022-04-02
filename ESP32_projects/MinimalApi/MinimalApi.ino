@@ -33,11 +33,11 @@ const int port = 80 ;
 
 // GSM settings
 #define GSM_PIN ""
-// Your GPRS credentials (leave empty, if not needed)
+// Lebara SIM: Switzerland
 //const char apn[]      = "internet.eplus.de"; // APN (example: internet.vodafone.pt) use https://wiki.apnchanger.org
 //const char gprsUser[] = "eplus"; // GPRS User
 //const char gprsPass[] = "gprs"; // GPRS Password
-
+// Lebara SIM: Italy
 const char apn[]      = "internet";
 const char gprsUser[] = ""; // GPRS User
 const char gprsPass[] = ""; // GPRS Password
@@ -171,7 +171,7 @@ void setup(void) {
 
   // DeepSleep settings
 #define uS_TO_S_FACTOR 1000000  // comvert to micro seconds
-  uint64_t sleep_s = 3600; // time to sleep in seconds
+  uint64_t sleep_s = 3600*6; // time to sleep in seconds
   esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_OFF);
   esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_OFF);
   esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_OFF);
