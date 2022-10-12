@@ -10,4 +10,5 @@ fi
 
 source DyDB/DyDB_object.sh
 
-DyDB_query MyBeeDataTable WeightSort_$date --partition WeightKg --raw-output | jq -r '.Items[] | [.MyValue.S, .mySortKey.S ] | @tsv'
+DyDB_query MyBeeDataTable WeightSort_$date --partition WeightKg --raw-output | jq -r '.Items[] | ["WeightKg", .MyValue.S, .mySortKey.S ] | @tsv'
+DyDB_query MyBeeDataTable WeightSort_$date --partition TempC --raw-output | jq -r '.Items[] | ["TempC", .MyValue.S, .mySortKey.S ] | @tsv'

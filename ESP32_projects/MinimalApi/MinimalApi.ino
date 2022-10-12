@@ -6,9 +6,12 @@
 const int led = 13;
 int extLED = 0;
 
-const char server[] = "d29s56othfawu8.cloudfront.net";
+
+//const char server[] = "d29s56othfawu8.cloudfront.net";
+const char server[] = "d2m3mgw5dldwts.cloudfront.net";
 //const char server[] = "example.com";
-const char resource[] = "/test1/DyDB/WeightKg/";
+const char resourceWeight[] = "/dev/DyDB/WeightKg/";
+const char resourceTemp[] = "/dev/DyDB/TempC/";
 //const char resource[] = "/";
 const int port = 80 ;
 
@@ -33,14 +36,18 @@ const int port = 80 ;
 
 // GSM settings
 #define GSM_PIN ""
+// 1nce 
+const char apn[]   = "iot.1nce.net";
+const char gprsUser[] = ""; // GPRS User
+const char gprsPass[] = ""; // GPRS Password
 // Lebara SIM: Switzerland
 //const char apn[]      = "internet.eplus.de"; // APN (example: internet.vodafone.pt) use https://wiki.apnchanger.org
 //const char gprsUser[] = "eplus"; // GPRS User
 //const char gprsPass[] = "gprs"; // GPRS Password
 // Lebara SIM: Italy
-const char apn[]      = "internet";
-const char gprsUser[] = ""; // GPRS User
-const char gprsPass[] = ""; // GPRS Password
+//const char apn[]      = "internet";
+//const char gprsUser[] = ""; // GPRS User
+//const char gprsPass[] = ""; // GPRS Password
 
 // SIM card PIN (leave empty, if not defined)
 const char simPIN[]   = "";
@@ -170,8 +177,8 @@ void setup(void) {
   modem.setBaud(9600);
 
   // DeepSleep settings
-#define uS_TO_S_FACTOR 1000000  // comvert to micro seconds
-  uint64_t sleep_s = 3600*6; // time to sleep in seconds
+#define uS_TO_S_FACTOR 1000000  // convert to micro seconds
+  uint64_t sleep_s = 3600*0.5; // time to sleep in seconds
   esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_OFF);
   esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_OFF);
   esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_OFF);
@@ -191,7 +198,7 @@ void loop(void) {
   // it can affect measurements
   wz.wait_ready();
   int j; 
-  for (int i=0; i<20; i++){
+  for (int i=0; i<2; i++){
     j= wz.get_units(20);
     Serial.println(String("wz: ") + j);
     if (j>0)
@@ -247,19 +254,30 @@ void loop(void) {
   }
 
   if (send_data) {
-    // post to DyDB
-    Serial.print(F("Performing HTTP GET request: "));
-    String resource_cmp = String(resource) + String(j);
-    Serial.print(String("server: ") + server + " port: " + port + " resource: " + resource_cmp + " ... value:" + String(j));
-    //http.connectionKeepAlive();  // Currently, this is needed for HTTPS
-    int http_err = http.get(resource_cmp);
-    if (http_err != 0) {
-      Serial.println(String("failed to connect. Error: ") + String(http_err));
-      //delay(10000);
-      //return;
-    }
+    for (int retry=0; retry<3; retry++){
+      // post to DyDB
+      Serial.print(String("Performing HTTP GET request: retry:") + String(retry));
+      String resource_cmp = String(resourceWeight) + String(j);
+      Serial.print(String(" server: ") + server + " port: " + port + " resource: " + resource_cmp + " ... value:" + String(j) + "\n");
+      int http_err1 = http.get(resource_cmp);
+      http.stop();
 
-    http.stop();
+      resource_cmp = String(resourceTemp) + String(20.0);
+      Serial.print(String(" server: ") + server + " port: " + port + " resource: " + resource_cmp + "\n");
+      int http_err2 = http.get(resource_cmp);
+      http.stop();
+      
+      if (http_err1 != 0 || http_err2 != 0) {
+        Serial.println(String("\n failed to connect. Error: ") + String(http_err1) + " Tmp: " + String(http_err2));
+        delay(5000); // retrying
+        //return;
+      }
+      else {
+        Serial.println(String(" ... Success \n"));
+        break;
+      }
+    }
+    
     Serial.println(F("Server disconnected"));
     modem.gprsDisconnect();
     Serial.println(F("GPRS disconnected"));
