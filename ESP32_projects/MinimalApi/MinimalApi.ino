@@ -134,10 +134,20 @@ void setup(void) {
       my_print("Tara in %i seconds\n", 10 - i);
       delay(1000);
     }
+    //wz.set_scale(1.0);
+    //wz.set_offset(0.0);
     Serial.println("Now put the weight... ");
-    delay(20000);
+    delay(10000);
+    for (int i=0;i<10;i++){
+      my_print("Raw values from wz: ");
+      Serial.print(wz.get_value(5));
+      Serial.print(", ");
+      Serial.println(wz.get_units(5));
+      delay(500);
+    }
+    
     Serial.println("Now calibrating ... ");
-    wz.callibrate_scale(3484, 20);
+    wz.callibrate_scale(11200, 20);
     Serial.println("Done");
 
     float scale = wz.get_scale();
@@ -149,8 +159,13 @@ void setup(void) {
   }
   //wz.set_offset(8333370);
   //wz.set_scale(-13.70);
-  wz.set_offset(110152);
-  wz.set_scale(13.60);
+  //wz.set_offset(110152);
+  //wz.set_scale(13.60);
+  //wz.set_scale(-17.90); // see evernote Stockwaage
+  //wz.set_offset(-8454);
+  wz.set_scale(-27.76);
+  wz.set_offset(-113026);
+
 
   //pinMode(led, OUTPUT);
   pinMode(extLED, OUTPUT);
@@ -189,22 +204,25 @@ void setup(void) {
                  " Seconds");
 }
 
-
 int num = 0;
 float cnt = 0.0;
 void loop(void) {
 
   // measure before connecting to GSM otherwise the modem might take that much energy that
   // it can affect measurements
-  wz.wait_ready();
-  int j; 
-  for (int i=0; i<2; i++){
-    j= wz.get_units(20);
-    Serial.println(String("wz: ") + j);
-    if (j>0)
-      break;
-    delay(10000);
+  
+  
+  int num_measurements = 20;
+  int measurements[num_measurements];
+  for (int i=0; i<num_measurements; i++){
+    wz.wait_ready();
+    measurements[i] = wz.get_units(20);
+    Serial.println(String("wz: ") + measurements[i]);
+    //if (j>0)
+    //  break;
+    delay(500);
   }
+  int j = median(measurements, num_measurements);
 
   Serial.print("post to DyDB: ");
   Serial.println(j);

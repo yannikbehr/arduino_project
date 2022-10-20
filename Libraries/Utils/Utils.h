@@ -14,6 +14,22 @@ void my_print( const char * format, ... )
   va_end (args);
 }
 */
+int sort_desc(const void *cmp1, const void *cmp2){
+    // Need to cast the void * to int *
+    int a = *((int *)cmp1);
+    int b = *((int *)cmp2);
+    return a > b ? -1 : (a < b ? 1 : 0);
+}
+
+int median(int* values, int len){
+    qsort(values, len, sizeof(values[0]), sort_desc);
+    if (len%2>0){
+        return values[len/2 + 1];
+    }
+    else{
+        return (values[len/2] + values[len/2 + 1])/2;
+    }
+}
 
 // this one can handle floats as well
 void my_print( const char * format, ... )
@@ -43,6 +59,20 @@ void my_print( const char * format, ... )
     	p1++ ; //expect at lease one more character, at least the zero termination   
     	switch (p1[0]){
           case 'i':
+          case 'l': { 
+            long num = va_arg(args, long);
+    	    //Serial.print("-l ");
+    	    Serial.print(num);
+            keep_going = false;
+            if (p1[1]=='d'){
+                p1++;// skipping over the d
+            }
+            else{
+                Serial.print("--expected \"ld\", got just \"l\"--");
+            }
+            p1++;
+    	    break;
+          }
     	  case 'd': {
     	    int num = va_arg(args, int);
     	    //Serial.print("-i ");
