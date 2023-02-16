@@ -7,12 +7,13 @@ if [ -z "$date" ]; then
 	echo "Months: Jan Feb Mar Apr... "
 	exit 2
 fi
+year=2023
 
 source DyDB/DyDB_object.sh
 
-for partition in WeightKg TempC Volt; do
+for partition in WeightKg TempC Reboot; do
     #DyDB_query MyBeeDataTable SortKey_$date --partition "$partition" --raw-output | jq --arg partition "$partition" -r '.Items[] | ["partition", .MyValue.S, .mySortKey.S ] | @tsv'
-    DyDB_query MyBeeDataTable SortKey_$date --partition "$partition" --raw-output | jq -r --arg partition "$partition" '.Items[] | [$partition, .MyValue.S, .mySortKey.S ] | @tsv'
+    DyDB_query MyBeeDataTable SortKey_$date/$year --partition "$partition" --raw-output | jq -r --arg partition "$partition" '.Items[] | [$partition, .MyValue.S, .mySortKey.S ] | @tsv'
 done
 
 
