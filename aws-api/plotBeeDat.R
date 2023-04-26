@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-dateStart = as.Date('2022-10-02')
+dateStart = as.Date('2023-04-23')
 dateEnd = Sys.Date()
 
 data = character()
@@ -17,7 +17,7 @@ while (dateStart<=dateEnd){
 
 	if (readDat){
 		cat(format(dateStart,'%A %B %d, %Y\n'))
-		dat = system(paste("./query_by_date.sh ", format(dateStart, '%d/'), month, sep=""), intern=T)
+		dat = system(paste("./query_by_date.sh ", format(dateStart, '%d/'), month, " | grep WeightKg | cut -f 2- ", sep=""), intern=T)
 		cat(paste(dat[length(dat)], "\n", sep=""))
 	}
 

@@ -2,6 +2,8 @@
 #include "Utils.h"
 #include "TempSensor.h"
 #include <HX711.h>
+#include <Preferences.h> // Using non-volatile storage to store individual values
+Preferences preferences;
 
 const int led = 13;
 int extLED = 0;
@@ -12,6 +14,7 @@ const char server[] = "d2m3mgw5dldwts.cloudfront.net";
 //const char server[] = "example.com";
 const char resourceWeight[] = "/dev/DyDB/WeightKg/";
 const char resourceTemp[] = "/dev/DyDB/TempC/";
+const char resourceReboot[] = "/dev/DyDB/Reboot/";
 //const char resource[] = "/";
 const int port = 80 ;
 
@@ -115,9 +118,18 @@ int pin1 = 33;
 int pin2 = 25;
 //int pin1 = 25;
 //int pin2 = 33;
-
+unsigned int counter;
 int tmpPin = 35;
 void setup(void) {
+  // Non-volatile storage...
+  // create reboot counter
+  preferences.begin("my-app", false);
+  counter = preferences.getUInt("counter", 0);
+  preferences.putUInt("counter", ++counter);
+  preferences.end();
+  //
+
+  
   pinMode(pin1, INPUT);
   pinMode(pin2, INPUT);
   Serial.begin(115200);
@@ -193,7 +205,7 @@ void setup(void) {
 
   // DeepSleep settings
 #define uS_TO_S_FACTOR 1000000  // convert to micro seconds
-  uint64_t sleep_s = 3600*0.5; // time to sleep in seconds
+  uint64_t sleep_s = 3600*2.5; // time to sleep in seconds
   esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_OFF);
   esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_OFF);
   esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_OFF);
@@ -210,20 +222,19 @@ void loop(void) {
 
   // measure before connecting to GSM otherwise the modem might take that much energy that
   // it can affect measurements
-  
-  
-  int num_measurements = 20;
+ 
+  int num_measurements = 10;
   int measurements[num_measurements];
   for (int i=0; i<num_measurements; i++){
     wz.wait_ready();
-    measurements[i] = wz.get_units(20);
+    measurements[i] = wz.get_units(10);
     Serial.println(String("wz: ") + measurements[i]);
     //if (j>0)
     //  break;
     delay(500);
   }
   int j = median(measurements, num_measurements);
-
+  Serial.printf("Current reboot counter value: %u\n", counter);
   Serial.print("post to DyDB: ");
   Serial.println(j);
   delay(1000);
@@ -284,8 +295,13 @@ void loop(void) {
       Serial.print(String(" server: ") + server + " port: " + port + " resource: " + resource_cmp + "\n");
       int http_err2 = http.get(resource_cmp);
       http.stop();
+
+      resource_cmp = String(resourceReboot) + String(counter);
+      Serial.print(String(" server: ") + server + " port: " + port + " resource: " + resource_cmp + "\n");
+      int http_err3 = http.get(resource_cmp);
+      http.stop();
       
-      if (http_err1 != 0 || http_err2 != 0) {
+      if (http_err1 != 0 || http_err2 != 0 || http_err3 != 0 ) {
         Serial.println(String("\n failed to connect. Error: ") + String(http_err1) + " Tmp: " + String(http_err2));
         delay(5000); // retrying
         //return;
