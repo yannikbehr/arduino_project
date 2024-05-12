@@ -7,7 +7,7 @@ if [ -z "$date" ]; then
 	echo "Months: Jan Feb Mar Apr... "
 	exit 2
 fi
-year=2023
+year=2024
 
 source DyDB/DyDB_object.sh
 
