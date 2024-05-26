@@ -65,3 +65,4 @@ echo curl -X GET -v https://${api_id}.execute-api.${region}.amazonaws.com/${stag
 Weight_id=$(API_get_endpoint_id Weight)
 echo "aws apigateway test-invoke-method --rest-api-id $api_id --resource-id ${Weight_id} --http-method GET --path-with-query-string \"DyDB/WeightKg/12\" --body file://test_lambda/create.json "
 
+# give access to console

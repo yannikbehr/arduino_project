@@ -56,7 +56,7 @@ DyDB_table_exists(){
 }
 
 DyDB_query(){
-	local usage="USAGE: DyDB_query <tableName> <sortKeyPrefix> [--partition <partitionKey>] [--raw-output]"
+	local usage="USAGE: DyDB_query <tableName> <sortPrefix> [--sortKey <sortKey>]  [--partition-key <partitionKey>] [--partition <partition>] [--raw-output]"
 	#default values
 	local raw_output="false"
 	local partition=$(default_partition)
@@ -71,9 +71,20 @@ DyDB_query(){
 		echo $usage
 		return
 	fi
+	partitionKey=$(default_partition_key)
+	sortKey=$(default_sort_key)
+
 	while [ ! -z "$1" ]; do
 		if [ "$1" == "--raw-output" ]; then
 			raw_output="true"
+		fi
+		if [ "$1" == "--partition-key" ]; then
+            shift
+			partitionKey=$1
+		fi
+		if [ "$1" == "--sort-key" ]; then
+            shift
+			sortKey=$1
 		fi
 		if [ "$1" == "--partition" ]; then
 			shift
@@ -87,8 +98,6 @@ DyDB_query(){
 		shift
 	done
 
-	partitionKey=$(default_partition_key)
-	sortKey=$(default_sort_key)
 
 	#echo "aws dynamodb query --table-name $tableName --key-conditions '{ \"$partitionKey\": { \"AttributeValueList\": [ {\"S\": \"$partition\"}], \"ComparisonOperator\": \"EQ\" }, \"$sortKey\": { \"AttributeValueList\": [ {\"S\": \"$value\"}], \"ComparisonOperator\": \"EQ\" } }'"
 	aws dynamodb query --table-name $tableName --key-conditions '{ "'$partitionKey'": { "AttributeValueList": [ {"S": "'$partition'"}], "ComparisonOperator": "EQ" }, "'$sortKey'": { "AttributeValueList": [ {"S": "'$value'"}], "ComparisonOperator": "BEGINS_WITH" } }' | 

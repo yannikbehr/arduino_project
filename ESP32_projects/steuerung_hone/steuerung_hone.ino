@@ -31,6 +31,7 @@ const int port = 80 ;
 #if !defined(TINY_GSM_RX_BUFFER)
 #define TINY_GSM_RX_BUFFER 650
 #endif
+
 // See all AT commands -> commands send to modem to drive connection / communication, if wanted
 // #define DUMP_AT_COMMANDS
 #define TINY_GSM_DEBUG Serial
@@ -43,14 +44,7 @@ const int port = 80 ;
 const char apn[]   = "iot.1nce.net";
 const char gprsUser[] = ""; // GPRS User
 const char gprsPass[] = ""; // GPRS Password
-// Lebara SIM: Switzerland
-//const char apn[]      = "internet.eplus.de"; // APN (example: internet.vodafone.pt) use https://wiki.apnchanger.org
-//const char gprsUser[] = "eplus"; // GPRS User
-//const char gprsPass[] = "gprs"; // GPRS Password
-// Lebara SIM: Italy
-//const char apn[]      = "internet";
-//const char gprsUser[] = ""; // GPRS User
-//const char gprsPass[] = ""; // GPRS Password
+
 
 // SIM card PIN (leave empty, if not defined)
 const char simPIN[]   = "";
@@ -67,50 +61,6 @@ TinyGsm modem(SerialAT);
 //TinyGsmClientSecure client(modem);
 TinyGsmClient client(modem);
 HttpClient http(client, server, port);
-
-void print_wakeup_reason() {
-  esp_sleep_wakeup_cause_t wakeup_reason;
-  wakeup_reason = esp_sleep_get_wakeup_cause();
-
-  switch (wakeup_reason)
-  {
-    case ESP_SLEEP_WAKEUP_UNDEFINED       : Serial.println("Wakeup caused by UNDEF    "); break;
-    case ESP_SLEEP_WAKEUP_ALL             : Serial.println("Wakeup caused by ALL      "); break;
-    case ESP_SLEEP_WAKEUP_EXT0            : Serial.println("Wakeup caused by EXT0     "); break;
-    case ESP_SLEEP_WAKEUP_EXT1            : Serial.println("Wakeup caused by EXT1     "); break;
-    case ESP_SLEEP_WAKEUP_TIMER           : Serial.println("Wakeup caused by TIMER    "); break;
-    case ESP_SLEEP_WAKEUP_TOUCHPAD        : Serial.println("Wakeup caused by TOUCHPAD "); break;
-    case ESP_SLEEP_WAKEUP_ULP             : Serial.println("Wakeup caused by ULP      "); break;
-    case ESP_SLEEP_WAKEUP_GPIO            : Serial.println("Wakeup caused by GPIO     "); break;
-    case ESP_SLEEP_WAKEUP_UART            : Serial.println("Wakeup caused by UART     "); break;
-    //case ESP_SLEEP_WAKEUP_WIFI            : Serial.println("Wakeup caused by WIFI     "); break;
-    //case ESP_SLEEP_WAKEUP_COCPU           : Serial.println("Wakeup caused by COCPU    "); break;
-    //case ESP_SLEEP_WAKEUP_COCPU_TRAP_TRIG : Serial.println("Wakeup caused by COCPU_TT "); break;
-    //case ESP_SLEEP_WAKEUP_BT              : Serial.println("Wakeup caused by BT       "); break;
-    default : Serial.println("Wakeup was not caused by deep sleep"); break;
-  }
-}
-
-void print_wakeup_touchpad() {
-  touch_pad_t touchPin;
-
-  touchPin = esp_sleep_get_touchpad_wakeup_status();
-
-  switch (touchPin)
-  {
-    case 0  : Serial.println("Touch detected on GPIO 4"); break;
-    case 1  : Serial.println("Touch detected on GPIO 0"); break;
-    case 2  : Serial.println("Touch detected on GPIO 2"); break;
-    case 3  : Serial.println("Touch detected on GPIO 15"); break;
-    case 4  : Serial.println("Touch detected on GPIO 13"); break;
-    case 5  : Serial.println("Touch detected on GPIO 12"); break;
-    case 6  : Serial.println("Touch detected on GPIO 14"); break;
-    case 7  : Serial.println("Touch detected on GPIO 27"); break;
-    case 8  : Serial.println("Touch detected on GPIO 33"); break;
-    case 9  : Serial.println("Touch detected on GPIO 32"); break;
-    default : Serial.println("Wakeup not by touchpad"); break;
-  }
-}
 
 // waegezelle
 HX711 wz;
