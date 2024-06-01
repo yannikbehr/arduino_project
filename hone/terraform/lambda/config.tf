@@ -2,6 +2,11 @@ provider "aws" {
   region = "eu-west-3"
 }
 
+variable region {
+	type = string
+	default = "eu-west-3"
+}
+
 resource "null_resource" "build_lambda" {
   provisioner "local-exec" {
     command = "/bin/bash ./zip_lambda.sh" 
@@ -15,6 +20,7 @@ resource "aws_lambda_function" "dynamodb_lambda" {
   source_code_hash = "1" # always update the lambda function 
   handler       = "lambda_function.lambda_handler"
   runtime       = "python3.12"
+  timeout       = 30
   role          = aws_iam_role.lambda_role.arn
   depends_on = [null_resource.build_lambda]
 }
@@ -39,13 +45,22 @@ resource "aws_iam_role" "lambda_role" {
 
     policy = jsonencode({
       "Version": "2012-10-17",
-      "Statement": [{
+      "Statement": [
+      {
         "Effect": "Allow",
         "Action": [
           "dynamodb:*"
         ],
         "Resource": "*"
-      }]
+      },
+	  {
+        "Effect": "Allow",
+        "Action": [
+          "ssm:*",
+        ],
+        "Resource": "*"
+      }
+      ]
     })
   }
 }
@@ -147,9 +162,69 @@ resource "aws_lambda_permission" "api_gw" {
 }
 
 
+resource "aws_cloudfront_distribution" "api_gateway_distribution" {
+  origin {
+    domain_name = "${aws_api_gateway_rest_api.api.id}.execute-api.${var.region}.amazonaws.com"
+    origin_id   = "apiGatewayOrigin"
+
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "https-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
+  enabled             = true
+  is_ipv6_enabled     = true
+  default_root_object = ""
+
+  default_cache_behavior {
+    allowed_methods  = ["GET", "HEAD", "OPTIONS"]
+    cached_methods   = ["GET", "HEAD"]
+    target_origin_id = "apiGatewayOrigin"
+
+    forwarded_values {
+      query_string = true
+
+      cookies {
+        forward = "none"
+      }
+    }
+
+    #viewer_protocol_policy = "redirect-to-https"
+    viewer_protocol_policy = "allow-all"
+    min_ttl                = 0
+    default_ttl            = 3600
+    max_ttl                = 86400
+  }
+
+  price_class = "PriceClass_100"
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+    }
+  }
+
+  viewer_certificate {
+    cloudfront_default_certificate = true
+  }
+
+  tags = {
+    Name = "api-gateway-distribution"
+  }
+}
+
+
 output "api_url" {
   value = "curl -X GET ${aws_api_gateway_deployment.deployment.invoke_url}/${aws_api_gateway_resource.resource.path_part}?Weight=75"
   description = "The URL of the API Gateway"
+}
+
+output "cloudfront_domain_name" {
+  value       = "curl -X GET \"http://${aws_cloudfront_distribution.api_gateway_distribution.domain_name}/dev/${aws_api_gateway_resource.resource.path_part}?heating_switch=refresh&html=false\""
+  description = "The domain name of the CloudFront distribution"
 }
 
 
