@@ -9,6 +9,18 @@ import pytz
 import json
 import boto3
 
+USERS = {
+    "010233212": "Nina",
+    "201928474": "Jonas",
+    "463701923": "ESP32",
+}
+
+def parse_user_id(user_id: str) -> str:
+    return USERS.get(user_id, "")
+
+def user_to_id(user: str) -> str:
+    return [uid for uid, u in USERS.items() if u==user][0]
+
 def set_ssm_param(name: str, value: str):
     try: 
         ssm = boto3.client('ssm')
@@ -26,14 +38,14 @@ def get_ssm_param(name: str):
     except Exception as e:
         return str(e)
 
-def add_button(host, status: str):
+def add_button(host, user, status: str):
     text = f"Switch heating {status}"
     if status == "refresh": 
         text = "Refresh"
     button = f"<button onclick=\"navigateToSwitch{status}()\">{text}</button>\n"
     button += "<script>\n"
     button += f"  function navigateToSwitch{status}()" + " {{ \n" 
-    button += f"   window.location.href = \"https://{host}/dev/dynamodb?heating_switch={status}\";\n"
+    button += f"   window.location.href = \"https://{host}/dev/dynamodb?heating_switch={status}&user={user_to_id(user)}\";\n"
     button += "  }}\n"
     button += "</script>\n"
     return button
@@ -45,7 +57,7 @@ def table_row(description, value):
     body += f"</tr>\n"
     return body
 
-def create_html_response(temp_c: float, host: str):
+def create_html_response(temp_c: float, host: str, user):
     header = '''
         <!DOCTYPE html>
         <html>
@@ -64,14 +76,15 @@ def create_html_response(temp_c: float, host: str):
     body += "  </thead>"
     body += table_row("Current temperature", temp_c)
     body += table_row("Heating switch", get_ssm_param('heating_switch'))
-    body += table_row("Reported by Hone controller", "off")
+    body += table_row("Reported by Hone controller", get_ssm_param("heating_hone_status"))
+    body += table_row("Last heard from Hone", get_ssm_param("last_msg_from_ESP"))
     body += f"</tr>\n"
     body += "</table>\n"
     body += f"<p>Switch heating</p>\n"
-    body += add_button(host, "on")
-    body += add_button(host, "off")
+    body += add_button(host, user, "on")
+    body += add_button(host, user, "off")
     body += f"<p></p>\n"
-    body += add_button(host, "refresh")
+    body += add_button(host, user, "refresh")
     body += "</body>\n"
     return header + body + "</html>"
 
@@ -86,22 +99,44 @@ def lambda_handler(event, context):
 
     my_host = event.get("requestContext", {}).get("domainName", "")
     params = event.get("queryStringParameters", {})
+    user = parse_user_id(params.get("userId", "0000"))
 
-    data = {
-        'sensor_id': params.get("Sensor", "default_sensor"),
-        'timestamp': timestamp,
-        'value': params.get("Weight", 0),
-    }
+    if not user:
+        return {
+            'statusCode': 403,
+            'headers': {
+                'Content-Type': 'text/html',
+            },
+            'body': "Forbidden....", 
+        }
 
-    # heating switch
-    switch = params.get("heating_switch", "")
-    if switch == "refresh": 
-        pass
-    elif switch in ["on", "off"]:
-        set_ssm_param("heating_switch", switch)
-    else:
-        # Put item to DynamoDB table
-        response = table.put_item(Item=data)
+    if user == "ESP32":
+        heating_hone_status = params.get("heating", "unknown")
+        set_ssm_param("last_msg_from_ESP", timestamp)
+        set_ssm_param("heating_hone_status", heating_hone_status)
+        data = {
+            'sensor_id': params.get("sensorId", ""),
+            'timestamp': timestamp,
+            'value': params.get("value", "0.0"),
+        }
+        if data['sensor_id'] and data['value']:
+            # Put item to DynamoDB table
+            response = table.put_item(Item=data)
+        return {
+            'statusCode': 200,
+             'headers': {
+                'Content-Type': 'text/html',
+            },
+            'body': f"switch:{get_ssm_param('heating_switch', switch)}", 
+        }
+
+    if user in ["Nina", "Jonas"]:
+        # heating switch
+        switch = params.get("heating_switch", "")
+        if switch == "refresh": 
+            pass
+        elif switch in ["on", "off"]:
+            set_ssm_param("heating_switch", switch)
 
     if params.get("html", "") == "false":
         try: 
@@ -128,7 +163,7 @@ def lambda_handler(event, context):
         'headers': {
             'Content-Type': 'text/html',
         },
-        'body': create_html_response(22.7, my_host), 
+        'body': create_html_response(22.7, my_host, user), 
     }
 
 
