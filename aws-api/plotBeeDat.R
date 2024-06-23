@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 
-dateStart = as.Date('2024-03-31')
+dateStart = as.Date('2024-06-01')
 dateEnd = Sys.Date()
 
 data = character()

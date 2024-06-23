@@ -10,7 +10,6 @@ int extLED = 0;
 
 
 const char server[] = "d2adilqhg7vm5d.cloudfront.net";
-const char resource[] = "/dev/dynamodb?heating_switch=refresh&html=false";
 const int port = 80 ;
 
 // Modemsetup and pins
@@ -20,6 +19,9 @@ const int port = 80 ;
 #define MODEM_POWER_ON       23
 #define MODEM_TX             27
 #define MODEM_RX             26
+
+// Pins heating
+#define PIN_HEATING          15
 
 //#define SerialMon Serial
 #define SerialAT Serial1
@@ -57,35 +59,14 @@ TinyGsm modem(SerialAT);
 TinyGsmClient client(modem);
 HttpClient http(client, server, port);
 
-
-void print_http_payload(HttpClient http) {
-  unsigned long timeoutStart = millis();
-  // Number of milliseconds to wait without receiving any data before we give up
-  int kNetworkTimeout = 30*1000;
-  // Number of milliseconds to wait if no data is available before trying again
-  int kNetworkDelay = 1000;
-  char c;
-  // Whilst we haven't timed out & haven't reached the end of the body
-  while ( (http.connected() || http.available()) &&
-          (!http.endOfBodyReached()) &&
-          ((millis() - timeoutStart) < kNetworkTimeout) )
-  {
-    if (http.available())
-    {
-      c = http.read();
-      // Print out this character
-      Serial.print(c);
-
-      // We read something, reset the timeout counter
-      timeoutStart = millis();
-    }
-    else
-    {
-      // We haven't got any data, so let's pause to allow some to
-      // arrive
-      delay(kNetworkDelay);
-    }
+String parse_body(String body){
+  if (strstr(body.c_str(), "switch:on")){
+    return "on";
   }
+  if (strstr(body.c_str(), "switch:off")){
+    return "off";
+  }
+  return "unclear";
 }
 
 
@@ -107,12 +88,16 @@ void setup(void) {
   digitalWrite(MODEM_RST, HIGH);
   digitalWrite(MODEM_POWER_ON, HIGH);
 
+  // pin heating
+  pinMode(PIN_HEATING, OUTPUT);
+  digitalWrite(PIN_HEATING, LOW);
+
   Serial.begin(115200);
   SerialAT.begin(9600, SERIAL_8N1, MODEM_RX, MODEM_TX);
   modem.setBaud(9600);
 }
 
-int num = 0;
+String switch_state("off");
 float cnt = 0.0;
 void loop(void) {
 
@@ -158,11 +143,23 @@ void loop(void) {
       Serial.println("GPRS connected");
     }
   }
-
+  // changing resource each time to avoid hitting the cache
+  // However, for consecutive attempts within the same iteration we want to hit the cache 
+  // so that the response is faster
+  String resource = String("/dev/res") + random(10000) + "?"
+                            + "userId=463701923" 
+                            + "&heating=" + switch_state
+                            + "&sensorId=temp_1"
+                            + "&value=20.11";
+  // If anything goes wrong with the connection, we want everything to be switched off
+  switch_state = "off";
+  
   if (send_data) {
     for (int retry = 0; retry < 3; retry++) {
+      
       Serial.print(String(" server: ") + server + " port: " + port + " resource: " + resource + "\n");
       int httpResponseCode  = http.get(resource);
+      http.endRequest();
 
       if (httpResponseCode != 0 ) {
         Serial.println(String("\n failed to connect. Error: ") + String(httpResponseCode));
@@ -172,8 +169,9 @@ void loop(void) {
       else {
         Serial.print("Response code: ");
         Serial.println(httpResponseCode);
-        Serial.print("Printing payload ");
-        print_http_payload(http);
+        String body = http.responseBody();
+        switch_state = parse_body(body);
+        Serial.println("Found state: \"" + switch_state + "\"");
         http.stop();
         break;
       }
@@ -183,6 +181,13 @@ void loop(void) {
     modem.gprsDisconnect();
     Serial.println(F("GPRS disconnected"));
   }
-  Serial.println("delay for a few sec");
-  delay(5000);
+  if (switch_state.compareTo("on") == 0){
+    digitalWrite(PIN_HEATING, HIGH);
+  }
+  else{
+    digitalWrite(PIN_HEATING, LOW);
+  }
+  
+  Serial.println("delay for a few minutes");
+  delay(60000*5);
 }

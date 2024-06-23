@@ -45,7 +45,7 @@ def add_button(host, user, status: str):
     button = f"<button onclick=\"navigateToSwitch{status}()\">{text}</button>\n"
     button += "<script>\n"
     button += f"  function navigateToSwitch{status}()" + " {{ \n" 
-    button += f"   window.location.href = \"https://{host}/dev/dynamodb?heating_switch={status}&user={user_to_id(user)}\";\n"
+    button += f"   window.location.href = \"https://{host}/dev/dynamodb?heating_switch={status}&userId={user_to_id(user)}\";\n"
     button += "  }}\n"
     button += "</script>\n"
     return button
@@ -77,7 +77,7 @@ def create_html_response(temp_c: float, host: str, user):
     body += table_row("Current temperature", temp_c)
     body += table_row("Heating switch", get_ssm_param('heating_switch'))
     body += table_row("Reported by Hone controller", get_ssm_param("heating_hone_status"))
-    body += table_row("Last heard from Hone", get_ssm_param("last_msg_from_ESP"))
+    body += table_row("Last heard from Hone", get_ssm_param("last_msg_from_ESP").split(".")[0])
     body += f"</tr>\n"
     body += "</table>\n"
     body += f"<p>Switch heating</p>\n"
@@ -125,9 +125,13 @@ def lambda_handler(event, context):
         return {
             'statusCode': 200,
              'headers': {
+                #'Cache-Control': 'no-cache, no-store, must-revalidate',
+                #'Pragma': 'no-cache',
+                #'Expires': '0',
+                'Cache-Control': 'max-age=120',
                 'Content-Type': 'text/html',
             },
-            'body': f"switch:{get_ssm_param('heating_switch', switch)}", 
+            'body': f"switch:{get_ssm_param('heating_switch')}", 
         }
 
     if user in ["Nina", "Jonas"]:

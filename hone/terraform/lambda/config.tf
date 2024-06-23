@@ -7,6 +7,11 @@ variable region {
 	default = "eu-west-3"
 }
 
+variable stage {
+    type = string
+    default = "dev"
+}
+
 module "lambda" {
     source = "./modules/lambda"
 
@@ -20,7 +25,8 @@ resource "aws_api_gateway_rest_api" "api" {
 resource "aws_api_gateway_resource" "resource" {
   rest_api_id = aws_api_gateway_rest_api.api.id
   parent_id   = aws_api_gateway_rest_api.api.root_resource_id
-  path_part   = "dynamodb"
+  #path_part   = "dynamodb"
+  path_part   = "{anyString}"
 }
 
 resource "aws_api_gateway_method" "method" {
@@ -96,7 +102,7 @@ resource "aws_api_gateway_deployment" "deployment" {
     aws_api_gateway_integration_response.integration_response
   ]
   rest_api_id = aws_api_gateway_rest_api.api.id
-  stage_name  = "dev"
+  stage_name  = var.stage
 }
 
 resource "aws_lambda_permission" "api_gw" {  
@@ -169,7 +175,7 @@ output "api_url" {
 }
 
 output "cloudfront_domain_name" {
-  value       = "curl -X GET \"http://${aws_cloudfront_distribution.api_gateway_distribution.domain_name}/dev/${aws_api_gateway_resource.resource.path_part}?heating_switch=refresh&html=false\""
+  value       = "curl -X GET \"http://${aws_cloudfront_distribution.api_gateway_distribution.domain_name}/${var.stage}/${aws_api_gateway_resource.resource.path_part}?heating_switch=refresh&html=false\""
   description = "The domain name of the CloudFront distribution"
 }
 
