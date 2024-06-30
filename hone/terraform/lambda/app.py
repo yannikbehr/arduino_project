@@ -8,12 +8,41 @@ from datetime import datetime
 import pytz
 import json
 import boto3
+#import pandas as pd
+#import plotly.express as plx
+#import plotly.io as pio
 
 USERS = {
     "010233212": "Nina",
     "201928474": "Jonas",
     "463701923": "ESP32",
 }
+
+#def plot_temp(table_name):
+#    tmp_out_html = "/tmp/plotly.html"
+#
+#    dynamodb = boto3.resource('dynamodb')
+#    table = dynamodb.Table(table_name)
+#    
+#    response = table.query(
+#        KeyConditionExpression=Key('sensor_id').eq('temp_1')
+#    )
+#    df = pd.DataFrame.from_dict(response["Items"])
+#    
+#    df['datetime'] = df['timestamp'].apply(datetime.fromisoformat)
+#    df["datetime"] = df["datetime"].dt.tz_localize(None)
+#    df["value"] = df["value"].astype(float)
+#    
+#    # drop old values: 
+#    current_year = datetime.now().year
+#    month = 6
+#    day = 23
+#    date_start = datetime(current_year, month, day)
+#    df = df[df["datetime"] > date_start]
+#    fig = plx.line(df, x="datetime", y="value")
+#    pio.write_html(fig, file=tmp_out_html, auto_open=True)
+#    return tmp_out_html
+
 
 def parse_user_id(user_id: str) -> str:
     return USERS.get(user_id, "")
@@ -57,7 +86,7 @@ def table_row(description, value):
     body += f"</tr>\n"
     return body
 
-def create_html_response(temp_c: float, host: str, user):
+def create_html_response(temp_c: float, host: str, user, plotly_html_page):
     header = '''
         <!DOCTYPE html>
         <html>
@@ -66,7 +95,7 @@ def create_html_response(temp_c: float, host: str, user):
         </head>
     '''
     body = "<body>\n"
-    body += "<h1>Current (fake) Hone Data</h1>\n"
+    body += "<h1>Current Hone Data</h1>\n"
     body += "<table>\n"
     body += "  <thead>"
     body += "    <tr>"
@@ -85,12 +114,16 @@ def create_html_response(temp_c: float, host: str, user):
     body += add_button(host, user, "off")
     body += f"<p></p>\n"
     body += add_button(host, user, "refresh")
+    if plotly_html_page:
+        body += "<h1>Temperatur</h1>"
+        body += "<iframe src=plotly_html_page width=\"100%\" height=\"600px\"></iframe>"
     body += "</body>\n"
     return header + body + "</html>"
 
 def lambda_handler(event, context):
     dynamodb = boto3.resource('dynamodb')
-    table = dynamodb.Table('hone_heat_table') 
+    table_name = 'hone_heat_table'
+    table = dynamodb.Table(table_name) 
 
     utc_now = datetime.utcnow()
     timezone = pytz.timezone('Europe/Berlin')
@@ -114,11 +147,15 @@ def lambda_handler(event, context):
         heating_hone_status = params.get("heating", "unknown")
         set_ssm_param("last_msg_from_ESP", timestamp)
         set_ssm_param("heating_hone_status", heating_hone_status)
+        sensor_id = params.get("sensorId", "")
+        value = params.get("value", "0.0")
         data = {
-            'sensor_id': params.get("sensorId", ""),
+            'sensor_id': sensor_id,
             'timestamp': timestamp,
-            'value': params.get("value", "0.0"),
+            'value': value,
         }
+        if sensor_id == "temp_1":
+            set_ssm_param("last_hone_temp_1", str(value))
         if data['sensor_id'] and data['value']:
             # Put item to DynamoDB table
             response = table.put_item(Item=data)
@@ -134,6 +171,7 @@ def lambda_handler(event, context):
             'body': f"switch:{get_ssm_param('heating_switch')}", 
         }
 
+    html_page = ""
     if user in ["Nina", "Jonas"]:
         # heating switch
         switch = params.get("heating_switch", "")
@@ -141,6 +179,8 @@ def lambda_handler(event, context):
             pass
         elif switch in ["on", "off"]:
             set_ssm_param("heating_switch", switch)
+
+        #html_page = plot_temp(table_name)
 
     if params.get("html", "") == "false":
         try: 
@@ -167,7 +207,7 @@ def lambda_handler(event, context):
         'headers': {
             'Content-Type': 'text/html',
         },
-        'body': create_html_response(22.7, my_host, user), 
+        'body': create_html_response(get_ssm_param("last_hone_temp_1"), my_host, user, html_page), 
     }
 
 

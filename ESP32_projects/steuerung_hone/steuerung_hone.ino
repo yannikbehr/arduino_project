@@ -23,6 +23,17 @@ const int port = 80 ;
 // Pins heating
 #define PIN_HEATING          15
 
+// Temp pins
+#define PIN_TEMP1            0
+
+// Constants for temp for tru-components temp sensor with 10 kΩ 3950 K 
+const float VCC = 3.3;         // Supply voltage
+const float R_FIXED = 100;   // Fixed resistor value (100Ω)
+
+const float TEMP0 = 298.15;       // Reference temperature (25°C in Kelvin)
+const float BETA = 3850;       // Beta parameter
+const float R0 = 100;        // Resistance at 25°C (100Ω)
+
 //#define SerialMon Serial
 #define SerialAT Serial1
 #if !defined(TINY_GSM_RX_BUFFER)
@@ -45,6 +56,7 @@ const char gprsPass[] = ""; // GPRS Password
 
 // SIM card PIN (leave empty, if not defined)
 const char simPIN[]   = "";
+
 
 #include <TinyGsmClient.h>
 #include <ArduinoHttpClient.h>
@@ -92,14 +104,39 @@ void setup(void) {
   pinMode(PIN_HEATING, OUTPUT);
   digitalWrite(PIN_HEATING, LOW);
 
+  // temp pin
+  pinMode(PIN_TEMP1, INPUT);
+
   Serial.begin(115200);
   SerialAT.begin(9600, SERIAL_8N1, MODEM_RX, MODEM_TX);
   modem.setBaud(9600);
 }
 
+float check_temp(int temp_pin){
+  int adcValue = analogRead(temp_pin);
+  float Vout = adcValue * (VCC / 4095.0);
+  float R_therm = R_FIXED * (VCC / Vout - 1);
+  // Calculate temperature in Kelvin
+  float temperatureK = 1 / (1 / TEMP0 + (1 / BETA) * log(R_therm / R0));
+
+  // Convert Kelvin to Celsius
+  float temperatureC = temperatureK - 273.15;
+
+  Serial.println("");
+  Serial.print("ADC Value: ");
+  Serial.println(adcValue);
+  Serial.print("Resistance: ");
+  Serial.println(R_therm);
+  Serial.print("Temperature (C): ");
+  Serial.println(temperatureC);  
+  return temperatureC;
+}
+
 String switch_state("off");
 float cnt = 0.0;
 void loop(void) {
+
+  float temp = check_temp(PIN_TEMP1);
 
   bool send_data = true;
   if (send_data) {
@@ -150,7 +187,7 @@ void loop(void) {
                             + "userId=463701923" 
                             + "&heating=" + switch_state
                             + "&sensorId=temp_1"
-                            + "&value=20.11";
+                            + "&value=" + temp;
   // If anything goes wrong with the connection, we want everything to be switched off
   switch_state = "off";
   

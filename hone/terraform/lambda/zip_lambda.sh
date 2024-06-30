@@ -8,5 +8,5 @@
 pip3 install -r requirements.txt -t ./ 
 
 # Zip the code directory
-zip -r lambda_function.zip lambda_function.py pytz 
+zip -r lambda_function.zip lambda_function.py $( cat requirements.txt | xargs )
 
