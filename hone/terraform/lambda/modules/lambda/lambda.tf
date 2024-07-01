@@ -1,5 +1,7 @@
 
-
+variable "image"{
+  type = string
+}
 
 resource "null_resource" "build_lambda" {
   provisioner "local-exec" {
@@ -9,11 +11,13 @@ resource "null_resource" "build_lambda" {
 
 resource "aws_lambda_function" "dynamodb_lambda" {
   function_name = "dynamodb_lambda_function"
-  filename      = "lambda_function.zip"
+  #filename      = "lambda_function.zip"
   #source_code_hash = local_file.lambda_hash.content
-  source_code_hash = "1" # always update the lambda function 
-  handler       = "lambda_function.lambda_handler"
-  runtime       = "python3.12"
+  #source_code_hash = "1" # always update the lambda function 
+  package_type  = "Image"
+  image_uri     = var.image 
+  #handler       = "lambda_function.lambda_handler"
+  #runtime       = "python3.12"
   timeout       = 30
   role          = aws_iam_role.lambda_role.arn
   depends_on = [null_resource.build_lambda]
