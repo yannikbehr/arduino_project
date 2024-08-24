@@ -4,13 +4,14 @@
 # date: Sun Mar  3 15:49:10 2024
 ######################################
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import pytz
 import json
 import boto3
-#import pandas as pd
-#import plotly.express as plx
-#import plotly.io as pio
+import pandas as pd
+import plotly.express as plx
+import plotly.io as pio
+from boto3.dynamodb.conditions import Key
 
 USERS = {
     "010233212": "Nina",
@@ -18,30 +19,30 @@ USERS = {
     "463701923": "ESP32",
 }
 
-#def plot_temp(table_name):
-#    tmp_out_html = "/tmp/plotly.html"
-#
-#    dynamodb = boto3.resource('dynamodb')
-#    table = dynamodb.Table(table_name)
-#    
-#    response = table.query(
-#        KeyConditionExpression=Key('sensor_id').eq('temp_1')
-#    )
-#    df = pd.DataFrame.from_dict(response["Items"])
-#    
-#    df['datetime'] = df['timestamp'].apply(datetime.fromisoformat)
-#    df["datetime"] = df["datetime"].dt.tz_localize(None)
-#    df["value"] = df["value"].astype(float)
-#    
-#    # drop old values: 
-#    current_year = datetime.now().year
-#    month = 6
-#    day = 23
-#    date_start = datetime(current_year, month, day)
-#    df = df[df["datetime"] > date_start]
-#    fig = plx.line(df, x="datetime", y="value")
-#    pio.write_html(fig, file=tmp_out_html, auto_open=True)
-#    return tmp_out_html
+def plot_temp(table_name):
+
+    dynamodb = boto3.resource('dynamodb')
+    table = dynamodb.Table(table_name)
+    
+    response = table.query(
+        KeyConditionExpression=Key('sensor_id').eq('temp_1')
+    )
+    df = pd.DataFrame.from_dict(response["Items"])
+    
+    df['datetime'] = df['timestamp'].apply(datetime.fromisoformat)
+    df["datetime"] = df["datetime"].dt.tz_localize(None)
+    df["value"] = df["value"].astype(float)
+    
+    # drop old values: 
+    #current_year = datetime.now().year
+    #month = datetime.now().year
+    #day = 19
+    #date_start = datetime(current_year, month, day)
+    date_start = datetime.now() - timedelta(days=7)
+    df = df[df["datetime"] > date_start]
+    fig = plx.line(df, x="datetime", y="value")
+    plotly_html = pio.to_html(fig, full_html=False, include_plotlyjs='cdn')
+    return plotly_html
 
 
 def parse_user_id(user_id: str) -> str:
@@ -116,7 +117,7 @@ def create_html_response(temp_c: float, host: str, user, plotly_html_page):
     body += add_button(host, user, "refresh")
     if plotly_html_page:
         body += "<h1>Temperatur</h1>"
-        body += "<iframe src=plotly_html_page width=\"100%\" height=\"600px\"></iframe>"
+        body += plotly_html_page
     body += "</body>\n"
     return header + body + "</html>"
 
@@ -147,18 +148,18 @@ def lambda_handler(event, context):
         heating_hone_status = params.get("heating", "unknown")
         set_ssm_param("last_msg_from_ESP", timestamp)
         set_ssm_param("heating_hone_status", heating_hone_status)
-        sensor_id = params.get("sensorId", "")
-        value = params.get("value", "0.0")
-        data = {
-            'sensor_id': sensor_id,
-            'timestamp': timestamp,
-            'value': value,
-        }
-        if sensor_id == "temp_1":
-            set_ssm_param("last_hone_temp_1", str(value))
-        if data['sensor_id'] and data['value']:
-            # Put item to DynamoDB table
-            response = table.put_item(Item=data)
+        value_temp_1 = params.get("tempSensor1", "-1000.0")
+        value_temp_2 = params.get("tempSensor2", "-1000.0")
+        for sensor_id, value in [("temp_1", value_temp_1), ("temp_2", value_temp_2)]:
+            data = {
+                'sensor_id': sensor_id,
+                'timestamp': timestamp,
+                'value': value,
+            }
+            if value != -1000.0:
+                set_ssm_param("last_hone_"+sensor_id, str(value))
+                # Put item to DynamoDB table
+                response = table.put_item(Item=data)
         return {
             'statusCode': 200,
              'headers': {
@@ -180,7 +181,7 @@ def lambda_handler(event, context):
         elif switch in ["on", "off"]:
             set_ssm_param("heating_switch", switch)
 
-        #html_page = plot_temp(table_name)
+        html_page = plot_temp(table_name)
 
     if params.get("html", "") == "false":
         try: 

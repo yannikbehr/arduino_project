@@ -25,13 +25,17 @@ const int port = 80 ;
 
 // Temp pins
 #define PIN_TEMP1            0
+#define PIN_TEMP2            2
+
 
 // Constants for temp for tru-components temp sensor with 10 kΩ 3950 K 
 const float VCC = 3.3;         // Supply voltage
 const float R_FIXED = 100;   // Fixed resistor value (100Ω)
 
-const float TEMP0 = 298.15;       // Reference temperature (25°C in Kelvin)
-const float BETA = 3850;       // Beta parameter
+//const float TEMP0 = 298.15;// Reference temperature (25°C in Kelvin)
+const float TEMP0 = 273.15;  // Reference temperature (0ºC in Kelvin)   
+//const float BETA = 3850;   // Beta parameter
+const float BETA = 265.24;   // estimated with two temp points
 const float R0 = 100;        // Resistance at 25°C (100Ω)
 
 //#define SerialMon Serial
@@ -106,38 +110,116 @@ void setup(void) {
 
   // temp pin
   pinMode(PIN_TEMP1, INPUT);
+  pinMode(PIN_TEMP2, INPUT);
 
   Serial.begin(115200);
   SerialAT.begin(9600, SERIAL_8N1, MODEM_RX, MODEM_TX);
   modem.setBaud(9600);
+
+  // DeepSleep settings
+#define uS_TO_S_FACTOR 1000000  // convert to micro seconds
+  uint64_t sleep_s = 60*30; // time to sleep in seconds
+  //esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_OFF);
+  //esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_OFF);
+  //esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_OFF);
+  //esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_TOUCHPAD);
+  //esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
+  esp_sleep_enable_timer_wakeup(sleep_s * uS_TO_S_FACTOR);
+  Serial.println(String("Setup ESP32 to sleep for every ") + String((int) sleep_s) +
+                 " Seconds");
 }
 
-float check_temp(int temp_pin){
+float check_temp(int temp_pin, int sensor_id){
   int adcValue = analogRead(temp_pin);
   float Vout = adcValue * (VCC / 4095.0);
-  float R_therm = R_FIXED * (VCC / Vout - 1);
-  // Calculate temperature in Kelvin
-  float temperatureK = 1 / (1 / TEMP0 + (1 / BETA) * log(R_therm / R0));
+  float R_t = R_FIXED * (VCC / Vout - 1);
 
-  // Convert Kelvin to Celsius
-  float temperatureC = temperatureK - 273.15;
+    // Constants for PT100
+    float R_0 = 97.5;             // Resistance at 0°C (should be 100, but it isn't)
+    //const float A = 3.9083e-3;        // according to chatGPT
+    //const float A = 0.00385;          // According to Conrad
+    float A = 0.0035;              // hand estimate
+    const float B = -5.775e-7;          // Coefficient B
 
-  Serial.println("");
-  Serial.print("ADC Value: ");
-  Serial.println(adcValue);
-  Serial.print("Resistance: ");
-  Serial.println(R_therm);
-  Serial.print("Temperature (C): ");
-  Serial.println(temperatureC);  
-  return temperatureC;
+    if (sensor_id == 2){
+        R_0 = 115.0;
+        A = 0.0038;
+    }
+
+    // Calculate the discriminant
+    float discriminant = A * A - 4 * B * (1 - R_t / R_0);
+    
+    // Check if the discriminant is negative
+    if (discriminant < 0) {
+        return NAN; // Return NaN if the discriminant is negative
+    }
+
+    // Calculate the two possible temperatures
+    float t1 = (-A + sqrt(discriminant)) / (2 * B);
+    float t2 = (-A - sqrt(discriminant)) / (2 * B);
+
+    float temperatureC;
+    // Return the valid temperature within the range of 0°C to 850°C
+    if (t1 >= 0 && t1 <= 850) {
+        temperatureC = t1;
+    } else {
+        temperatureC = t2;
+    }
+
+  if (false){
+    Serial.print("Temp sensor ");
+    Serial.println(sensor_id);
+    Serial.print("ADC Value: ");
+    Serial.println(adcValue);
+    Serial.print("Resistance: ");
+    Serial.println(R_t);
+    Serial.print("T2: ");
+    Serial.println(t2);  
+    Serial.print("T1: ");
+    Serial.println(t1);
+  }
+  //return temperatureC;
+  return R_t;
+}
+
+float analog_read_avg(int pin, int sensor_id){
+  int num=20;
+  int measurements[num];
+   for (int i=0; i<num; i++){
+       measurements[i] = analogRead(pin);
+       delay(100);
+   }
+   int val = median(measurements, num);
+   if (sensor_id == 1){
+      float z[3] = {-3.96057531e+04,  2.54354624e+01, -4.07716180e-03};
+      return z[0] + val * z[1] + val * val * z[2];
+   }
+   float z[3] = {-5.22592239e+04, 3.33208349e+01, -5.30613391e-03};
+   return z[0] + val * z[1] + val * val * z[2];
 }
 
 String switch_state("off");
 float cnt = 0.0;
 void loop(void) {
-
-  float temp = check_temp(PIN_TEMP1);
-
+  float temp = analog_read_avg(PIN_TEMP1, 1);
+  float temp2 = analog_read_avg(PIN_TEMP2, 2);
+  if (false){
+    for (int i=0; i<100; i++){
+      //temp = check_temp(PIN_TEMP1, 1);
+      //temp2 = check_temp(PIN_TEMP2, 2);
+      float adcValue1 = analog_read_avg(PIN_TEMP1, 1);
+      float adcValue2 = analog_read_avg(PIN_TEMP2, 2);
+      Serial.print("(");
+      Serial.print(adcValue1);
+      Serial.print(",");
+      Serial.print(adcValue2);
+      Serial.print("), ");
+      delay(50);
+    }
+    Serial.println();
+    delay(5000);
+    return;
+  }
   bool send_data = true;
   if (send_data) {
     Serial.println("Initializing modem...");
@@ -186,8 +268,8 @@ void loop(void) {
   String resource = String("/dev/res") + random(10000) + "?"
                             + "userId=463701923" 
                             + "&heating=" + switch_state
-                            + "&sensorId=temp_1"
-                            + "&value=" + temp;
+                            + "&tempSensor1=" + temp
+                            + "&tempSensor2=" + temp2;
   // If anything goes wrong with the connection, we want everything to be switched off
   switch_state = "off";
   
@@ -225,6 +307,11 @@ void loop(void) {
     digitalWrite(PIN_HEATING, LOW);
   }
   
-  Serial.println("delay for a few minutes");
-  delay(60000*5);
+  //Serial.println("delay for a few minutes");
+  //delay(60000*30);
+
+  Serial.println("Going to sleep now");
+  delay(1000);
+  Serial.flush();
+  esp_deep_sleep_start();
 }
