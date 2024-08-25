@@ -119,69 +119,13 @@ void setup(void) {
   // DeepSleep settings
 #define uS_TO_S_FACTOR 1000000  // convert to micro seconds
   uint64_t sleep_s = 60*30; // time to sleep in seconds
-  //esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_OFF);
-  //esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_OFF);
-  //esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_PERIPH, ESP_PD_OPTION_OFF);
-  //esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_TOUCHPAD);
-  //esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
   esp_sleep_enable_timer_wakeup(sleep_s * uS_TO_S_FACTOR);
   Serial.println(String("Setup ESP32 to sleep for every ") + String((int) sleep_s) +
                  " Seconds");
 }
 
-float check_temp(int temp_pin, int sensor_id){
-  int adcValue = analogRead(temp_pin);
-  float Vout = adcValue * (VCC / 4095.0);
-  float R_t = R_FIXED * (VCC / Vout - 1);
-
-    // Constants for PT100
-    float R_0 = 97.5;             // Resistance at 0°C (should be 100, but it isn't)
-    //const float A = 3.9083e-3;        // according to chatGPT
-    //const float A = 0.00385;          // According to Conrad
-    float A = 0.0035;              // hand estimate
-    const float B = -5.775e-7;          // Coefficient B
-
-    if (sensor_id == 2){
-        R_0 = 115.0;
-        A = 0.0038;
-    }
-
-    // Calculate the discriminant
-    float discriminant = A * A - 4 * B * (1 - R_t / R_0);
-    
-    // Check if the discriminant is negative
-    if (discriminant < 0) {
-        return NAN; // Return NaN if the discriminant is negative
-    }
-
-    // Calculate the two possible temperatures
-    float t1 = (-A + sqrt(discriminant)) / (2 * B);
-    float t2 = (-A - sqrt(discriminant)) / (2 * B);
-
-    float temperatureC;
-    // Return the valid temperature within the range of 0°C to 850°C
-    if (t1 >= 0 && t1 <= 850) {
-        temperatureC = t1;
-    } else {
-        temperatureC = t2;
-    }
-
-  if (false){
-    Serial.print("Temp sensor ");
-    Serial.println(sensor_id);
-    Serial.print("ADC Value: ");
-    Serial.println(adcValue);
-    Serial.print("Resistance: ");
-    Serial.println(R_t);
-    Serial.print("T2: ");
-    Serial.println(t2);  
-    Serial.print("T1: ");
-    Serial.println(t1);
-  }
-  //return temperatureC;
-  return R_t;
-}
-
+// polynomial fit parameters estimated with 
+// git/arduino_project/hone/temp_sensors/tmp.py
 float analog_read_avg(int pin, int sensor_id){
   int num=20;
   int measurements[num];
