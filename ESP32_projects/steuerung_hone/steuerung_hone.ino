@@ -28,12 +28,12 @@ const int port = 80 ;
 #define PIN_TEMP2            2
 
 
-// Constants for temp for tru-components temp sensor with 10 kΩ 3950 K 
+// Constants for temp for tru-components temp sensor with 10 kΩ 3950 K
 const float VCC = 3.3;         // Supply voltage
 const float R_FIXED = 100;   // Fixed resistor value (100Ω)
 
 //const float TEMP0 = 298.15;// Reference temperature (25°C in Kelvin)
-const float TEMP0 = 273.15;  // Reference temperature (0ºC in Kelvin)   
+const float TEMP0 = 273.15;  // Reference temperature (0ºC in Kelvin)
 //const float BETA = 3850;   // Beta parameter
 const float BETA = 265.24;   // estimated with two temp points
 const float R0 = 100;        // Resistance at 25°C (100Ω)
@@ -75,25 +75,29 @@ TinyGsm modem(SerialAT);
 TinyGsmClient client(modem);
 HttpClient http(client, server, port);
 
-String parse_body(String body){
-  if (strstr(body.c_str(), "switch:on")){
-    return "on";
+int parse_body(String body) {
+  if (strstr(body.c_str(), "switch:on")) {
+    return 1;
   }
-  if (strstr(body.c_str(), "switch:off")){
-    return "off";
+  if (strstr(body.c_str(), "switch:off")) {
+    return 0;
   }
-  return "unclear";
+  return -1;
 }
-
+// time to sleep in seconds
+uint64_t sleep_s = 60 * 30;
 
 int counter;
+// Switch for the heating, on:1 off:0 or unclear:-1
+int state;
 void setup(void) {
   // Non-volatile storage...
   // create reboot counter
-  //preferences.begin("my-app", false);
-  //counter = preferences.getUInt("counter", 0);
-  //preferences.putUInt("counter", ++counter);
-  //preferences.end();
+  preferences.begin("my-app", false);
+  counter = preferences.getUInt("counter", 0);
+  preferences.putUInt("counter", ++counter);
+  state = preferences.getUInt("state", 0); // default off
+  preferences.end();
 
   // Modem setup
   // Set your reset, enable, power pins here
@@ -118,46 +122,111 @@ void setup(void) {
 
   // DeepSleep settings
 #define uS_TO_S_FACTOR 1000000  // convert to micro seconds
-  uint64_t sleep_s = 60*30; // time to sleep in seconds
   esp_sleep_enable_timer_wakeup(sleep_s * uS_TO_S_FACTOR);
   Serial.println(String("Setup ESP32 to sleep for every ") + String((int) sleep_s) +
                  " Seconds");
 }
 
-// polynomial fit parameters estimated with 
-// git/arduino_project/hone/temp_sensors/tmp.py
-float analog_read_avg(int pin, int sensor_id){
-  int num=20;
-  int measurements[num];
-   for (int i=0; i<num; i++){
-       measurements[i] = analogRead(pin);
-       delay(100);
-   }
-   int val = median(measurements, num);
-   if (sensor_id == 1){
-      float z[3] = {-3.96057531e+04,  2.54354624e+01, -4.07716180e-03};
-      return z[0] + val * z[1] + val * val * z[2];
-   }
-   float z[3] = {-5.22592239e+04, 3.33208349e+01, -5.30613391e-03};
-   return z[0] + val * z[1] + val * val * z[2];
+int send_data_get_state(int state, float temp, float temp2) {
+
+  // If anything goes wrong with the connection, we want everything to be switched off
+  int ret = 0;
+
+  String switch_state = "unclear";
+  if (state == 1) {
+    switch_state = "on";
+  }
+  else if (state == 0) {
+    switch_state = "off";
+  }
+
+  // changing resource each time to avoid hitting the cache
+  // However, for consecutive attempts within the same iteration we want to hit the cache
+  // so that the response is faster
+  String resource = String("/dev/res") + random(10000) + "?"
+                    + "userId=463701923"
+                    + "&heating=" + switch_state
+                    + "&tempSensor1=" + temp
+                    + "&tempSensor2=" + temp2;
+
+  for (int retry = 0; retry < 3; retry++) {
+
+    Serial.print(String(" server: ") + server + " port: " + port + " resource: " + resource + "\n");
+    int httpResponseCode  = http.get(resource);
+    http.endRequest();
+
+    if (httpResponseCode != 0 ) {
+      Serial.println(String("\n failed to connect. Error: ") + String(httpResponseCode));
+      http.stop();
+      delay(5000); // retrying
+    }
+    else {
+      Serial.print("Response code: ");
+      Serial.println(httpResponseCode);
+      String body = http.responseBody();
+      ret = parse_body(body);
+      Serial.println("Found state: " + String(ret));
+      http.stop();
+      break;
+    }
+  }
+  return ret;
 }
 
-String switch_state("off");
+// polynomial fit parameters estimated with
+// git/arduino_project/hone/temp_sensors/tmp.py
+float analog_read_avg(int pin, int sensor_id) {
+  int num = 20;
+  int measurements[num];
+  for (int i = 0; i < num; i++) {
+    measurements[i] = analogRead(pin);
+    delay(100);
+  }
+  int val = median(measurements, num);
+  if (sensor_id == 1) {
+    float z[3] = { -3.96057531e+04,  2.54354624e+01, -4.07716180e-03};
+    return z[0] + val * z[1] + val * val * z[2];
+  }
+  float z[3] = { -5.22592239e+04, 3.33208349e+01, -5.30613391e-03};
+  return z[0] + val * z[1] + val * val * z[2];
+}
+
 float cnt = 0.0;
 void loop(void) {
-  float temp = analog_read_avg(PIN_TEMP1, 1);
-  float temp2 = analog_read_avg(PIN_TEMP2, 2);
+
+  // sleep before checking temp to make sure that everything is in a steady state
+  delay(2000);
+  // calculating average over a couple of measurements 
+  float temp = 0; 
+  float temp2 = 0;
   if (false){
-    for (int i=0; i<100; i++){
-      //temp = check_temp(PIN_TEMP1, 1);
-      //temp2 = check_temp(PIN_TEMP2, 2);
-      float adcValue1 = analog_read_avg(PIN_TEMP1, 1);
-      float adcValue2 = analog_read_avg(PIN_TEMP2, 2);
-      Serial.print("(");
+    int num = 10;
+    for (int i=0; i<num; i++){
+      float val1 = analog_read_avg(PIN_TEMP1, 1);
+      float val2 = analog_read_avg(PIN_TEMP2, 2);
+      Serial.println("(" + String(val1) + ", " + String(val2) + ")");
+      temp += val1;
+      temp2 += val2;
+      delay(1000);
+    }
+    temp /= num;
+    temp2 /= num;
+  }
+  
+  if (true) {
+    // This output is used to gather some data to fit the temperatures
+    for (int i = 0; i < 100; i++) {
+      //float adcValue1 = analog_read_avg(PIN_TEMP1, 1);
+      int adcValue1 = analogRead(PIN_TEMP1);
+      //float adcValue2 = analog_read_avg(PIN_TEMP2, 2);
+      //Serial.print("(");
       Serial.print(adcValue1);
       Serial.print(",");
-      Serial.print(adcValue2);
-      Serial.print("), ");
+      //Serial.print(adcValue2);
+      //Serial.print("), ");
+      if (i % 10 == 0){
+          Serial.println("");
+      }
       delay(50);
     }
     Serial.println();
@@ -206,56 +275,30 @@ void loop(void) {
       Serial.println("GPRS connected");
     }
   }
-  // changing resource each time to avoid hitting the cache
-  // However, for consecutive attempts within the same iteration we want to hit the cache 
-  // so that the response is faster
-  String resource = String("/dev/res") + random(10000) + "?"
-                            + "userId=463701923" 
-                            + "&heating=" + switch_state
-                            + "&tempSensor1=" + temp
-                            + "&tempSensor2=" + temp2;
-  // If anything goes wrong with the connection, we want everything to be switched off
-  switch_state = "off";
-  
-  if (send_data) {
-    for (int retry = 0; retry < 3; retry++) {
-      
-      Serial.print(String(" server: ") + server + " port: " + port + " resource: " + resource + "\n");
-      int httpResponseCode  = http.get(resource);
-      http.endRequest();
 
-      if (httpResponseCode != 0 ) {
-        Serial.println(String("\n failed to connect. Error: ") + String(httpResponseCode));
-        http.stop();
-        delay(5000); // retrying
-      }
-      else {
-        Serial.print("Response code: ");
-        Serial.println(httpResponseCode);
-        String body = http.responseBody();
-        switch_state = parse_body(body);
-        Serial.println("Found state: \"" + switch_state + "\"");
-        http.stop();
-        break;
-      }
-    }
+  if (send_data) {
+    state = send_data_get_state(state, temp, temp2);
 
     Serial.println(F("Server disconnected"));
     modem.gprsDisconnect();
     Serial.println(F("GPRS disconnected"));
+    Serial.flush();    
   }
-  if (switch_state.compareTo("on") == 0){
-    digitalWrite(PIN_HEATING, HIGH);
+  // store state to persistent memory
+  if (state == 0 || state == 1) {
+    preferences.begin("my-app", false);
+    preferences.putUInt("state", state);
+    preferences.end();
   }
-  else{
-    digitalWrite(PIN_HEATING, LOW);
-  }
-  
-  //Serial.println("delay for a few minutes");
-  //delay(60000*30);
 
-  Serial.println("Going to sleep now");
-  delay(1000);
-  Serial.flush();
-  esp_deep_sleep_start();
+  if (state == 1) {
+    digitalWrite(PIN_HEATING, HIGH);
+    // not going to deep sleep if heating is on
+    delay(sleep_s * 1000);
+  }
+  else {
+    digitalWrite(PIN_HEATING, LOW);
+    Serial.println("Going to sleep now");
+    esp_deep_sleep_start();
+  }
 }

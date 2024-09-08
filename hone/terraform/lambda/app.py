@@ -19,28 +19,31 @@ USERS = {
     "463701923": "ESP32",
 }
 
-def plot_temp(table_name):
+def get_recent_data(table, sensor_id, days):
+    now = datetime.now()
+    past_timestamp = now - timedelta(days=days)
+    past_timestamp_str = past_timestamp.isoformat()
+    response = table.query(
+        KeyConditionExpression=boto3.dynamodb.conditions.Key('sensor_id').eq(sensor_id) &
+                               boto3.dynamodb.conditions.Key('timestamp').gte(past_timestamp_str)
+    )
+    return response['Items']
+
+def plot_temp(table_name, days=7):
 
     dynamodb = boto3.resource('dynamodb')
     table = dynamodb.Table(table_name)
     
-    response = table.query(
-        KeyConditionExpression=Key('sensor_id').eq('temp_1')
-    )
-    df = pd.DataFrame.from_dict(response["Items"])
+    df1 = pd.DataFrame(get_recent_data(table, "temp_1", days))
+    df2 = pd.DataFrame(get_recent_data(table, "temp_2", days))
+    df = df1.merge(df2, on="timestamp").rename(columns={"value_x": "temp1", "value_y": "temp2"})    
     
     df['datetime'] = df['timestamp'].apply(datetime.fromisoformat)
     df["datetime"] = df["datetime"].dt.tz_localize(None)
-    df["value"] = df["value"].astype(float)
+    for field in ["temp1", "temp2"]:
+        df[field] = df[field].astype(float)
     
-    # drop old values: 
-    #current_year = datetime.now().year
-    #month = datetime.now().year
-    #day = 19
-    #date_start = datetime(current_year, month, day)
-    date_start = datetime.now() - timedelta(days=7)
-    df = df[df["datetime"] > date_start]
-    fig = plx.line(df, x="datetime", y="value")
+    fig = plx.line(df, x="datetime", y=["temp1", "temp2"])
     plotly_html = pio.to_html(fig, full_html=False, include_plotlyjs='cdn')
     return plotly_html
 
