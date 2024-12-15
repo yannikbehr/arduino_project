@@ -20,7 +20,7 @@ const int port = 80 ;
 #define MODEM_TX             27
 #define MODEM_RX             26
 
-// Pins heating
+// Pin heating
 #define PIN_HEATING          15
 
 // Temp pins
@@ -176,6 +176,9 @@ int send_data_get_state(int state, float temp, float temp2) {
 // polynomial fit parameters estimated with
 // git/arduino_project/hone/temp_sensors/tmp.py
 float analog_read_avg(int pin, int sensor_id) {
+  float z1[4] = {-5.32885082e+03,  3.45109944e+01, -7.45169535e-02,  5.37018932e-05}; 
+  float z2[4] = {-2.76016582e+00,  2.02217144e-02, -9.62514519e-07,  4.54582506e-10}; 
+  int split_val = 487;
   int num = 20;
   int measurements[num];
   for (int i = 0; i < num; i++) {
@@ -183,12 +186,10 @@ float analog_read_avg(int pin, int sensor_id) {
     delay(100);
   }
   int val = median(measurements, num);
-  if (sensor_id == 1) {
-    float z[3] = { -3.96057531e+04,  2.54354624e+01, -4.07716180e-03};
-    return z[0] + val * z[1] + val * val * z[2];
+  if (val < split_val){
+    return z1[0] + val*z1[1] + val*val*z1[2] + val*val*val*z1[3];
   }
-  float z[3] = { -5.22592239e+04, 3.33208349e+01, -5.30613391e-03};
-  return z[0] + val * z[1] + val * val * z[2];
+  return z2[0] + val*z2[1] + val*val*z2[2] + val*val*val*z2[3];
 }
 
 float cnt = 0.0;
@@ -218,12 +219,12 @@ void loop(void) {
     for (int i = 0; i < 100; i++) {
       //float adcValue1 = analog_read_avg(PIN_TEMP1, 1);
       int adcValue1 = analogRead(PIN_TEMP1);
-      //float adcValue2 = analog_read_avg(PIN_TEMP2, 2);
-      //Serial.print("(");
+      int adcValue2 = analogRead(PIN_TEMP2);
+      Serial.print("(");
       Serial.print(adcValue1);
       Serial.print(",");
-      //Serial.print(adcValue2);
-      //Serial.print("), ");
+      Serial.print(adcValue2);
+      Serial.print("), ");
       if (i % 10 == 0){
           Serial.println("");
       }
