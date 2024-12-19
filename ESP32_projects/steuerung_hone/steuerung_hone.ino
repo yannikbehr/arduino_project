@@ -176,9 +176,25 @@ int send_data_get_state(int state, float temp, float temp2) {
 // polynomial fit parameters estimated with
 // git/arduino_project/hone/temp_sensors/tmp.py
 float analog_read_avg(int pin, int sensor_id) {
-  float z1[4] = {-5.32885082e+03,  3.45109944e+01, -7.45169535e-02,  5.37018932e-05}; 
-  float z2[4] = {-2.76016582e+00,  2.02217144e-02, -9.62514519e-07,  4.54582506e-10}; 
-  int split_val = 487;
+  //float z1[4] = {-5.32885082e+03,  3.45109944e+01, -7.45169535e-02,  5.37018932e-05}; 
+  //float z2[4] = {-2.76016582e+00,  2.02217144e-02, -9.62514519e-07,  4.54582506e-10}; 
+  //int split_val = 487;
+  float z1[4];
+  float z2[4];
+  int split_val;
+  if (sensor_id == 0){
+    float _z1[4] = {-5.50458589e+03,  3.59939713e+01, -7.84427625e-02,  5.70293078e-05}; 
+    float _z2[4] = {-1.07394261e+00,  1.36165808e-02,  3.94112405e-06, -6.42440858e-10}; 
+    memcpy(z1, _z1, sizeof(z1));
+    memcpy(z2, _z2, sizeof(z2));
+    split_val = 478;
+  } else {
+    float _z1[4] = {-6.44449736e+00,  7.27603461e-02, -2.87039415e-04,  4.74037120e-07};
+    float _z2[4] = {-1.20528103e+00,  1.58201500e-02,  3.10320485e-06, -5.61528583e-10};
+    memcpy(z1, _z1, sizeof(z1));
+    memcpy(z2, _z2, sizeof(z2));
+    split_val = 351;
+  }
   int num = 20;
   int measurements[num];
   for (int i = 0; i < num; i++) {
@@ -198,23 +214,9 @@ void loop(void) {
   // sleep before checking temp to make sure that everything is in a steady state
   delay(2000);
   // calculating average over a couple of measurements 
-  float temp = 0; 
-  float temp2 = 0;
-  if (false){
-    int num = 10;
-    for (int i=0; i<num; i++){
-      float val1 = analog_read_avg(PIN_TEMP1, 1);
-      float val2 = analog_read_avg(PIN_TEMP2, 2);
-      Serial.println("(" + String(val1) + ", " + String(val2) + ")");
-      temp += val1;
-      temp2 += val2;
-      delay(1000);
-    }
-    temp /= num;
-    temp2 /= num;
-  }
-  
-  if (true) {
+  float temp = analog_read_avg(PIN_TEMP1, 0); 
+  float temp2 = analog_read_avg(PIN_TEMP2, 1);
+  if (false) {
     // This output is used to gather some data to fit the temperatures
     for (int i = 0; i < 100; i++) {
       //float adcValue1 = analog_read_avg(PIN_TEMP1, 1);
@@ -234,6 +236,7 @@ void loop(void) {
     delay(5000);
     return;
   }
+  
   bool send_data = true;
   if (send_data) {
     Serial.println("Initializing modem...");

@@ -184,7 +184,10 @@ def lambda_handler(event, context):
         elif switch in ["on", "off"]:
             set_ssm_param("heating_switch", switch)
 
-        html_page = plot_temp(table_name)
+        try: 
+            html_page = plot_temp(table_name)
+        except Exception as e:
+            print(f"caught exception trying to plot: {e}")
 
     if params.get("html", "") == "false":
         try: 
