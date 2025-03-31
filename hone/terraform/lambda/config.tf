@@ -13,7 +13,7 @@ variable stage {
 }
 
 module "lambda" {
-    image  = "137637932857.dkr.ecr.eu-west-3.amazonaws.com/hone-lambda-ecr:15" 
+    image  = "137637932857.dkr.ecr.eu-west-3.amazonaws.com/hone-lambda-ecr:16" 
     source = "./modules/lambda"
 
 }
