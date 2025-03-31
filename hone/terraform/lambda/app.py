@@ -39,6 +39,7 @@ def plot_temp(table_name, days=7):
     df = df1.merge(df2, on="timestamp").rename(columns={"value_x": "temp1", "value_y": "temp2"})    
     
     df['datetime'] = df['timestamp'].apply(datetime.fromisoformat)
+    df["datetime"] = pd.to_datetime(df["timestamp"], utc=True)
     df["datetime"] = df["datetime"].dt.tz_localize(None)
     for field in ["temp1", "temp2"]:
         df[field] = df[field].astype(float)
@@ -214,7 +215,7 @@ def lambda_handler(event, context):
         'headers': {
             'Content-Type': 'text/html',
         },
-        'body': create_html_response(get_ssm_param("last_hone_temp_1"), my_host, user, html_page), 
+        'body': create_html_response(get_ssm_param("last_hone_temp_2"), my_host, user, html_page), 
     }
 
 
