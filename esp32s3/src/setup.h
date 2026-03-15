@@ -95,6 +95,7 @@ bool basic_modem_setup(TinyGsm& modem){
     pinMode(BOARD_MODEM_PWR_PIN, OUTPUT);
 
     int retry = 0;
+    Serial.print("Powering up modem");
     while (!modem.testAT(1000)) {
         Serial.print(".");
         if (retry++ > 10) {
@@ -152,4 +153,19 @@ bool connect_GSM_1nce(TinyGsm& modem){
   return true;
 }
 
+
+bool configure_endpoint(TinyGsm& modem){
+    // Set the client ID (the "Thing" name from your Terraform)
+    modem.sendAT("+SMCONF=\"CLIENTID\",\"T-SIM7080G_01\"");
+    modem.waitResponse();
+    
+    // See terraform Makefile
+    modem.sendAT("+SMCONF=\"URL\",\"a3fu7j5avgf87g-ats.iot.eu-west-3.amazonaws.com\",8883");
+    modem.waitResponse();
+    
+    // Enable SSL 
+    modem.sendAT("+SMCONF=\"SSL\",0");
+    modem.waitResponse();
+    return true;
+}
 

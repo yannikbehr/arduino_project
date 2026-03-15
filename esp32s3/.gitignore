@@ -1,4 +1,13 @@
 
+# sensitive data, cannot be sent to github
 certs/*
-src/cert.h
+src/certs.h
+# terraform stuff
 terraform/lambda_function.zip
+terraform/.terraform.lock.hcl
+terraform/.terraform/
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+
+logs
+.pio/
