@@ -1,0 +1,4 @@
+
+certs/*
+src/cert.h
+terraform/lambda_function.zip

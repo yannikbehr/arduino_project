@@ -19,3 +19,21 @@ clean:
 # Open the serial monitor
 monitor:
 	pio device monitor
+
+
+certs/device.crt:
+	@mkdir -p certs
+	@echo Extract the certificate
+	cd terraform && terraform output -raw certificate_pem > ../certs/device.crt
+
+certs/device.key:
+	@mkdir -p certs
+	@echo "Extract the private key (you might need to use 'terraform console' if it's marked sensitive)"
+	cd terraform && terraform output -raw private_key > ../certs/device.key
+
+certs/AmazonRootCA1.pem:
+	@mkdir -p certs
+	@echo Download the Amazon Root CA
+	curl https://www.amazontrust.com/repository/AmazonRootCA1.pem -o certs/AmazonRootCA1.pem
+
+certs: certs/device.crt certs/device.key certs/AmazonRootCA1.pem
