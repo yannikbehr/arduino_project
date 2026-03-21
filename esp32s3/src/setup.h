@@ -10,9 +10,12 @@
 
 #define XPOWERS_CHIP_AXP2101
 #include "XPowersLib.h"
+#include "AT_utils.h" // run_AT_cmd and wait_respose_wrap
+
 XPowersPMU  PMU;
 
 bool checkSignalQuality() {
+  Serial.println("checkSignalQuality");
   while (true){  
     Serial1.println("AT+CSQ");
     delay(500);
@@ -27,14 +30,18 @@ bool checkSignalQuality() {
         Serial.println("Warning: No signal (99). Check antenna.");
       } else {
         return true;
+        Serial.println("OK -----------\n\n");
       }
     } else {
       Serial.print("Serial1 not available");
     }
   }
+  return false;
+  Serial.println("FAILED -----------\n\n");
 }
 
 bool PMU_setup(){
+    Serial.println("PMU_setup");
     /*********************************
      *  step 1 : Initialize power chip,
      *  turn on modem and gps antenna power channel
@@ -86,6 +93,7 @@ bool PMU_setup(){
     PMU.enableBLDO2();      // The antenna power must be turned on to use the GPS function
 
     return true;
+    Serial.println("OK -----------\n\n");
 }
 
 bool basic_modem_setup(TinyGsm& modem){
@@ -94,11 +102,12 @@ bool basic_modem_setup(TinyGsm& modem){
 
     pinMode(BOARD_MODEM_PWR_PIN, OUTPUT);
 
-    int retry = 0;
-    Serial.print("Powering up modem");
+    int retry = 100; // start with the toggle
+    Serial.print("Check modem");
     while (!modem.testAT(1000)) {
         Serial.print(".");
-        if (retry++ > 10) {
+        if (retry++ > 5) {
+            Serial.println("Toggle modem power");
             // Pull down PWRKEY for more than 1 second according to manual requirements
             digitalWrite(BOARD_MODEM_PWR_PIN, LOW);
             delay(100);
@@ -106,66 +115,71 @@ bool basic_modem_setup(TinyGsm& modem){
             delay(1000);
             digitalWrite(BOARD_MODEM_PWR_PIN, LOW);
             retry = 0;
-            Serial.println(F("***********************************************************"));
-            Serial.println(F(" Failed to connect to the modem! Check the baud and try again."));
-            Serial.println(F("***********************************************************\n"));
         }
     }
 
    
 
-  // 1. Force the modem to use both LTE-M and NB-IoT
-  Serial1.println("AT+CNMP=38"); 
-  delay(500);
-  
-  // 2. Set the band mask to "all" (or European standard)
-  // Note: This command allows the modem to search all common bands
-  Serial1.println("AT+CBAND=ALL"); 
-  delay(500);
-  
-  // 3. Reset the modem to apply band changes
-  Serial1.println("AT+CFUN=0"); // Set to minimum functionality
-  delay(1000);
-  Serial1.println("AT+CFUN=1"); // Set to full functionality
+  //// 1. Force the modem to use both LTE-M and NB-IoT
+  //run_AT_cmd(modem, "+CNMP=38"); 
+  //delay(500);
+  //
+  //// 2. Set the band mask to "all" (or European standard)
+  //// Note: This command allows the modem to search all common bands
+  //run_AT_cmd(modem,"+CBAND=ALL"); 
+  //delay(500);
+  //
+  //// 3. Reset the modem to apply band changes
+  //run_AT_cmd(modem,"+CFUN=0"); // Set to minimum functionality
+  //delay(1000);
+  //run_AT_cmd(modem,"+CFUN=1"); // Set to full functionality
 
-
-    checkSignalQuality();
-
-    return true;
+  //if (checkSignalQuality()){
+  //  Serial.println("OK -----------\n\n");
+  //  return true;
+  //}
+  //Serial.println("FAILED -----------\n\n");
+  return false;
 }
 
 bool connect_GSM_1nce(TinyGsm& modem){
-  Serial.println("Initializing modem...");
+  Serial.println("connect_GSM_1nce");
   if (!modem.restart()) {
     Serial.println("Failed to restart modem!");
+    Serial.println("FAILED -----------\n\n");
     return false;
   }
   // 'iot.1nce.net' standard global APN.
   Serial.println("Connecting to 1NCE...");
   if (!modem.gprsConnect("iot.1nce.net", "", "")) {
     Serial.println("GPRS Connect failed!");
+    Serial.println("FAILED -----------\n\n");
     return false;
   } else {
     Serial.println("Connected to 1NCE!");
     Serial.print("IP Address: ");
     Serial.println(modem.localIP());
   }
+  Serial.println("OK -----------\n\n");
   return true;
 }
 
 
 bool configure_endpoint(TinyGsm& modem){
+    Serial.println("configure_endpoint");
+
+    // Force Clean Session to 1. This tells the modem to release SSL resources on disconnect.
+    run_AT_cmd(modem, "+SMCONF=\"cleanss\",1");
+
     // Set the client ID (the "Thing" name from your Terraform)
-    modem.sendAT("+SMCONF=\"CLIENTID\",\"T-SIM7080G_01\"");
-    modem.waitResponse();
+    run_AT_cmd(modem, "+SMCONF=\"CLIENTID\",\"T-SIM7080G_01\"");
     
     // See terraform Makefile
-    modem.sendAT("+SMCONF=\"URL\",\"a3fu7j5avgf87g-ats.iot.eu-west-3.amazonaws.com\",8883");
-    modem.waitResponse();
+    run_AT_cmd(modem, "+SMCONF=\"URL\",\"a3fu7j5avgf87g-ats.iot.eu-west-3.amazonaws.com\",8883");
     
     // Enable SSL 
-    modem.sendAT("+SMCONF=\"SSL\",0");
-    modem.waitResponse();
+    run_AT_cmd(modem, "+SMCONF=\"SSL\",0");
+    Serial.println("OK -----------\n\n");
     return true;
 }
 

@@ -8,33 +8,29 @@
 TinyGsm modem(SerialAT);
 int num_msg = 0;
 
-bool send_all_certs_to_modem(TinyGsm& modem) {
-    const char* filenames[] = {"AmazonRootCA1.pem", "device.crt", "device.key"};
-    
-    // 1. Force a clean start
-    modem.sendAT("+CFSTERM");
-    modem.waitResponse(2000);
-    modem.sendAT("+CFSINIT");
-    if (modem.waitResponse(5000) != 1) return false;
-
-    // 2. Force Upload (Ignore existence checks for now to rule them out)
-    for (const char* fname : filenames) {
-        fs::File f = LittleFS.open(String("/") + fname, FILE_READ);
-        if (f) {
-            Serial.printf("Uploading %s...\n", fname);
-            // Re-use your robust LilyGO function, but remove the init/term from it
-            // or just ensure your LilyGO function handles overwriting properly.
-            sendFileToModem(modem, f, fname); 
-            f.close();
-            delay(1000); // Flash commit delay
-        }
-    }
-
-    // 3. One-time Termination
-    modem.sendAT("+CFSTERM");
-    modem.waitResponse(5000);
-    return true;
+void one_time_modem_fs_cleanup(TinyGsm& modem){
+  // 1. Force the File System to release everything
+  cmd_get_return(modem, "AT+CFSTERM");
+  delay(1000);
+  
+  // 2. Format the User Storage (U: drive)
+  // This is the only command that can break a UFS lock
+  Serial.println("FORMATTING USER DRIVE...");
+  cmd_get_return(modem, "AT+CFSFORMAT=0"); 
+  delay(5000); // Give it a long time to wipe the flash sectors
+  
+  // 3. Restart and check
+  cmd_get_return(modem, "AT+CFSINIT");
+  String driveCheck = cmd_get_return(modem, "AT+CFSGFIS=0");
+  
+  if (driveCheck.indexOf("ERROR") == -1) {
+      Serial.println("SUCCESS: Drive is back online!");
+  } else {
+      Serial.println("HARDWARE FAILURE: Flash is unresponsive.");
+  }
 }
+
+
 
 void setup()
 {
@@ -43,37 +39,63 @@ void setup()
     PMU_setup();
     basic_modem_setup(modem);
 
+
+    // 1. Kill the Radio immediately to release the Flash lock
+  cmd_get_return(modem, "AT+CFUN=0");
+  delay(2000);
+  
+  // 2. Now that the radio is OFF, try the resets
+  Serial.println("RADIO OFF - Attempting Unlocks...");
+  cmd_get_return(modem, "AT+SMDISC");
+  cmd_get_return(modem, "AT+CSSLCFG=\"factory\"");
+  cmd_get_return(modem, "AT+CSSLCFG=\"del\",0");
+  
+  // 3. Try to initialize and format the drive while OFFLINE
+  cmd_get_return(modem, "AT+CFSTERM");
+
+
+  // 1. Disable "Slow Clock" (This prevents the Flash from going into low-power mode)
+  cmd_get_return(modem, "AT+CSCLK=0"); 
+  
+  // 2. Disable "Power Saving Mode" (PSM)
+  cmd_get_return(modem, "AT+CPSMS=0");
+  
+  // 3. Disable "Extended Discontinuous Reception" (eDRX)
+  cmd_get_return(modem, "AT+CEDRXS=0");
+  
+  delay(1000); // Give it a second to stabilize the voltage to the Flash chip
+
+
+
+  cmd_get_return(modem, "AT+CFSINIT");
+  String driveCheck = cmd_get_return(modem, "AT+CFSGFIS=0");
+  
+  if (driveCheck.indexOf("ERROR") != -1) {
+      Serial.println("Still locked. Forcing Format while Radio is OFF...");
+      cmd_get_return(modem, "AT+CFSFORMAT=0");
+      delay(2000);
+      cmd_get_return(modem, "AT+CFSINIT");
+      cmd_get_return(modem, "AT+CFSGFIS=0");
+  }
+  
+  // 4. ONLY AFTER THIS IS DONE, turn the radio back on
+  cmd_get_return(modem, "AT+CFUN=1");
+
     // creating files on littleFS from certificates 
     // stored in certs.h
     prepareCertificates();
-
-    connect_GSM_1nce(modem);
 
     send_all_certs_to_modem(modem);
 
     setup_ssl(modem);
 
+    check_ssl(modem);
+
+    connect_GSM_1nce(modem);
+
     configure_endpoint(modem);
- 
-    // Check if the SSL configuration is accepted
-    modem.sendAT("+CSSLCFG=\"clientcert\",0");
-    if (modem.waitResponse(5000) != 1) 
-      Serial.println("SSL Config Missing!");
-    else Serial.println("SSL Config OK!");
 
-
-    // Only proceed to connect if SSL is configured
-    if (modem.waitResponse(5000) == 1) {
-        Serial.println("SSL Config OK! Initiating MQTT...");
-
-        // 1. Actually open the connection
-        modem.sendAT("+SMCONN");
-        if (modem.waitResponse(15000) == 1) {
-            Serial.println("Connected to AWS IoT!");
-        } else {
-            Serial.println("Connection failed - Check Credentials/Policy");
-        }
-    }
+    setup_mqtt(modem);
 }
 
 
@@ -115,32 +137,66 @@ bool isConnected(TinyGsm& modem) {
 }
 
 bool safePublish(TinyGsm& modem, const char* payload) {
-  if (!isConnected(modem)) {
-    // Add this before modem.sendAT("+SMCONN");
-    modem.sendAT("+CMEE=2"); // Enable verbose error reporting
-    modem.waitResponse();
-    Serial.println("Connection lost, reconnecting...");
+    if (!isConnected(modem)) {
+        Serial.println("Connection lost. Resetting MQTT state...");
 
-    modem.sendAT("+CSSLCFG=\"clientcert\",0");
-    if (modem.waitResponse(5000) != 1) {
-        Serial.println("CRITICAL: SSL Config is still invalid!");
+        // 1. Force disconnect to clear internal modem MQTT buffer
+        modem.sendAT("+SMDISC");
+        modem.waitResponse(5000);
+
+        // 2. Re-connect
+        modem.sendAT("+SMCONN");
+        if (modem.waitResponse(20000) != 1) {
+            Serial.println("SMCONN failed - check modem logs!");
+            return false;
+        }
+        Serial.println("SMCONN successful!");
     }
 
-    modem.sendAT("+SMCONN");
-    // Change this to capture the response, not just wait
-    if (modem.waitResponse(20000) != 1) { 
-        Serial.println("SMCONN failed - check modem logs!");
-        return false;
-    }
-    Serial.println("SMCONN successful!");
-  }
-  return publishMqttData(modem, "devices/SIM7080G_01/data", payload);
+    // 3. Proceed to publish
+    return publishMqttData(modem, "devices/SIM7080G_01/data", payload);
 }
+
+void debugModemConfig(TinyGsm& modem) {
+    Serial.println("--- MODEM CONFIG DUMP ---");
+    
+    // TinyGSM's sendAT() doesn't print the response, 
+    // but you can read the response into the modem's internal buffer
+    // and then print it if you know where it's stored.
+    
+    // The easiest way: Just send the AT command directly to the Serial port 
+    // and read the result.
+    
+    const char* debugCmds[] = {
+        "AT+SMCONF?", 
+        "AT+CSSLCFG=\"cacert\",0", 
+        "AT+CSSLCFG=\"clientcert\",0", 
+        "AT+CSSLCFG=\"clientkey\",0"
+    };
+
+    for (const char* cmd : debugCmds) {
+        Serial.print("Command: ");
+        Serial.println(cmd);
+        
+        // Send the command directly through the modem stream
+        modem.stream.println(cmd);
+        
+        // Wait for the response and print it to your Serial Monitor
+        long start = millis();
+        while (millis() - start < 2000) {
+            if (modem.stream.available()) {
+                Serial.write(modem.stream.read());
+            }
+        }
+        Serial.println("\n-------------------------");
+    }
+}
+
 
 void loop()
 {
     Serial.print("loop ");
-    /*
+    debugModemConfig(modem);
     if (num_msg < 10){
 
       float temp = 1.1111;
@@ -153,8 +209,7 @@ void loop()
          Serial.println("Failed to send message");
       }
     }
-    */
-    delay(1000);
+    delay(30000);
 }
 
 

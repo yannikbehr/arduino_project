@@ -5,14 +5,17 @@
 // See the Makefile to see how the data was retrieved.
 #include "certs.h"
 #include <LittleFS.h>
+#include "AT_utils.h" // run_AT_cmd and wait_respose_wrap
 
 void prepareCertificates() {
+    Serial.println("prepareCertificates");
 
     // Pass 'true' to format the LittleFS partition if it's corrupted
     if (!LittleFS.begin(true)) { 
         Serial.println("LittleFS Mount Failed. Formatting...");
         if(!LittleFS.format() || !LittleFS.begin()){
              Serial.println("CRITICAL: LittleFS Format failed.");
+             Serial.println("FAILED -----------\n\n");
              return;
         }
     }
@@ -20,6 +23,7 @@ void prepareCertificates() {
     // 1. Ensure LittleFS is mounted
     if (!LittleFS.begin(true)) {
         Serial.println("LittleFS Mount Failed");
+        Serial.println("FAILED -----------\n\n");
         return;
     }
 
@@ -43,97 +47,122 @@ void prepareCertificates() {
             Serial.printf("File %s already exists. Skipping.\n", files[i]);
         }
     }
+    Serial.println("OK -----------\n\n");
 }
 
-bool setup_ssl(TinyGsm& modem){
+void syncTime(TinyGsm& modem) {
+    Serial.println("syncTime");
+    Serial.println("Setting NTP Server...");
+    run_AT_cmd(modem, "+CNTP=\"pool.ntp.org\",0"); // Set NTP server
 
-    // Sync clock before SSL attempt
-    modem.sendAT("+CNTP=1"); // Request network time
-    modem.waitResponse();
-    delay(2000); 
-    modem.sendAT("+CCLK?"); // Verify the time is correct (not 1980)
-    modem.waitResponse();
+    Serial.println("Syncing...");
+    run_AT_cmd(modem, "+CNTP"); // Start sync
 
-    // 1. Set SSL version to TLS 1.2
-    modem.sendAT("+CSSLCFG=\"sslversion\",0,3");
-    modem.waitResponse();
+    delay(2000); // Wait for update
+
+    if (run_AT_cmd(modem, "+CCLK?")){
+        Serial.println("OK -----------\n\n");
+    } else {
+        Serial.println("FAILED -----------\n\n");
+    }
+}
+
+bool setup_ssl(TinyGsm& modem) {
+    Serial.println("setup_ssl");
+    //syncTime(modem);
+    // Enable automatic time zone update from tower
+    run_AT_cmd(modem, "+CTZU=1", 5000); 
+
+    // 1. CLEAR the index first!
+    run_AT_cmd(modem, "+CSSLCFG=\"sslversion\",0,3"); // TLS 1.2
+
+    // 1. Force-close any hanging SSL/MQTT connections
+    run_AT_cmd(modem, "+SMDISC"); // Disconnect MQTT
     
-    // 2. Point the modem to the files we just uploaded
-    // Add "U:/" prefix to the filenames
-    modem.sendAT("+CSSLCFG=\"cacert\",0,\"AmazonRootCA1.pem\"");
-    if (modem.waitResponse() != 1) {
-        Serial.println("RootCA path error - check filesystem");
-    }
-
-    modem.sendAT("+CSSLCFG=\"clientcert\",0,\"device.crt\"");
-    if (modem.waitResponse() != 1) {
-        Serial.println("clientcert path error");
-    }
+    run_AT_cmd(modem, "+SHDISC"); // Disconnect HTTP/SSL
     
-    modem.sendAT("+CSSLCFG=\"clientkey\",0,\"device.key\"");
-    if (modem.waitResponse() != 1) {
-        Serial.println("clientkey path error");
-    }
-    return true;
-}
+    // 2. Now try the delete again
+    for (int i=0; i<3; i++){
+        if (!run_AT_cmd(modem, "+CSSLCFG=\"del\",0")){
+           Serial.println("Still failed to clear... trying a full SSL reset.");
 
-// Helper function to upload a single cert with verification
-bool uploadCertToModem(TinyGsm& modem, const char* filename, const char* content) {
-    // 1. Delete existing file to prevent collision
-    modem.sendAT("+CFSDELE=\"", filename, "\"");
-    modem.waitResponse();
+           // 1. Force the modem to detach from the network (Soft Reset)
+           run_AT_cmd(modem, "+CFUN=0", 5000);
 
-    // 2. Prepare the write command
-    // Use length of content and allow 10s timeout
-    modem.sendAT("+CFSWFILE=0,\"", filename, "\",0,", strlen(content), ",10000");
+           // 2. Re-enable the RF and Stack
+           run_AT_cmd(modem, "+CFUN=1", 5000);
 
-    // 3. Wait for the ">" prompt before streaming data
-    if (modem.waitResponse(5000, ">") != 1) {
-        Serial.printf("Failed to get ready prompt for %s\n", filename);
-        return false;
-    }
+           // This resets the entire SSL RAM bank
+           run_AT_cmd(modem, "+CSSLCFG=\"factory\"");
 
-    // 4. Stream data and terminate with Ctrl+Z
-    modem.stream.print(content);
-    modem.stream.write(26);
-
-    // 5. Verify the modem accepted the file
-    if (modem.waitResponse(10000) != 1) {
-        Serial.printf("Modem rejected file: %s\n", filename);
-        return false;
-    }
-    return true;
-}
-
-bool upload_all_certs(TinyGsm& modem) {
-    Serial.println("Initializing Modem Filesystem...");
-    modem.sendAT("+CFSINIT");
-    if (modem.waitResponse(5000) != 1) {
-        Serial.println("FS Init failed! Modem may be busy or partitioned.");
-        return false;
-    }
-
-    bool all_pass = true;
-
-    // Array of files and their content pointers
-    const char* filenames[] = {"AmazonRootCA1.pem", "device.crt", "device.key"};
-    const char* contents[] = {rootCA, clientCert, clientKey};
-
-    for (int i = 0; i < 3; i++) {
-        Serial.printf("Attempting to upload %s...\n", filenames[i]);
-        if (uploadCertToModem(modem, filenames[i], contents[i])) {
-            Serial.printf("Successfully uploaded %s\n", filenames[i]);
+           delay(1000);
         } else {
-            Serial.printf("Failed to upload %s\n", filenames[i]);
-            all_pass = false;
+            Serial.println("Succeded to clear");
+            break;
         }
     }
+    delay(2000);
 
-    // Terminate FS session after batch upload
-    modem.sendAT("+CFSTERM");
-    modem.waitResponse();
+    bool all_found = true;
+    for (int i=0; i<1; i++){
+        all_found = true;        
+        if (!run_AT_cmd(modem, "+CSSLCFG=\"clientcert\",0,\"U:/device.crt\"")){
+            if (!run_AT_cmd(modem, "+CSSLCFG=\"clientcert\",0,\"device.crt\"")){
+                all_found = false;
+            }
+        }
+        delay(2000);
+        
+        if (!run_AT_cmd(modem, "+CSSLCFG=\"clientkey\",0,\"U:/device.key\"")){
+            if (!run_AT_cmd(modem, "+CSSLCFG=\"clientkey\",0,\"device.key\"")){
+                all_found = false;
+            } 
+        }
+        delay(2000);
 
-    return all_pass;
+        if (!run_AT_cmd(modem, "+CSSLCFG=\"cacert\",0,\"U:/AmazonRootCA1.pem\"")){
+            if (!run_AT_cmd(modem, "+CSSLCFG=\"cacert\",0,\"AmazonRootCA1.pem\"")){
+                all_found = false;
+            } 
+        }
+        if (all_found) break;
+        delay(2000);
+    }
+    if (all_found){
+        Serial.println("OK -----------\n\n");
+        return true;
+    }
+    Serial.println("FAILED -----------\n\n");
+    return false;
+}
+
+bool check_ssl(TinyGsm& modem){
+    Serial.println("check_ssl");
+    // Check if the SSL configuration is accepted
+    if (!run_AT_cmd(modem, "+CSSLCFG=\"clientcert\",0")){
+      Serial.println("SSL Config Missing!");
+      Serial.println("FAILED -----------\n\n");
+      return false;
+    }
+    Serial.println("SSL Config OK!");
+    Serial.println("OK -----------\n\n");
+    return true;
+} 
+
+bool setup_mqtt(TinyGsm& modem){
+    Serial.println("setup_mqtt");
+    // Only proceed to connect if SSL is configured
+    Serial.println("Initiating MQTT...");
+
+    // 1. Actually open the connection
+    if(run_AT_cmd(modem, "+SMCONN", 15000)){
+        Serial.println("Connected to AWS IoT!");
+        Serial.println("OK -----------\n\n");
+        return true;
+    } 
+    Serial.println("Connection failed - Check Credentials/Policy");
+    Serial.println("FAILED -----------\n\n");
+    return false;
 }
 
 #endif
