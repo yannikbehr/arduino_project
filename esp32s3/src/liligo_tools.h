@@ -1,13 +1,14 @@
 
 #pragma once
 
+#include <LittleFS.h>
 #include "AT_utils.h" // run_AT_cmd and wait_respose_wrap
 
 const size_t bufferSize = 10240; // 10KB buffer size
 uint8_t buffer[bufferSize];
 
 void fs_init(TinyGsm& modem, int retry=5){
-    if (run_AT_cmd(modem, "+CFSINIT"), 1000, retry){
+    if (run_AT_cmd(modem, "+CFSINIT", 1000, retry)){
         Serial.println("fs_init: +CFSINIT Success");
     }
 }
@@ -26,20 +27,6 @@ void sendFileToModem(TinyGsm& modem, File file, const char* filename) {
     fs_init(modem);
 
 
-    // 2. THE WAKE-UP CALL: Check total drive space
-    // This command forces the modem to physically talk to the Flash chip
-    String driveStatus = cmd_get_return(modem, "AT+CFSGFIS=0");
-
-    if (driveStatus.indexOf("ERROR") != -1) {
-        Serial.println("Drive Mount Failed. Retrying with explicit U:/ prefix...");
-        // Some firmwares need the specific drive name
-        cmd_get_return(modem, "AT+CFSGFIS=1");
-    }
-
-
-    // This confirms we are looking at the User drive for Directory ID 0
-    cmd_get_return(modem, "AT+CFSGFIS=0,\"test.txt\"");
-
     // Get the total size of the file
     size_t totalSize = file.size();
     size_t alreadySent = 0;
@@ -51,10 +38,10 @@ void sendFileToModem(TinyGsm& modem, File file, const char* filename) {
         size_t chunkSize = std::min(totalSize, static_cast<size_t>(10000)); // Limit chunk size to 10,000 bytes
 
         // Prepare the file upload command
-        String command = "+CFSWFILE=0,\"" + String(filename) + "\"," + String(firstChunk ? 0 : 1) + "," + String(chunkSize) + ",10000";
+        String command = "AT+CFSWFILE=3,\"" + String(filename) + "\"," + String(firstChunk ? 0 : 1) + "," + String(chunkSize) + ",10000";
         String res = cmd_get_return(modem, command.c_str()); 
 
-        if (res.indexOf(">") != -1) {
+        if (res.indexOf("DOWNLOAD") != -1 || res.indexOf(">") != -1) {
             Serial.println("OK: Modem ready for upload.");
         } else {
             Serial.println("ABORT: Modem rejected the file open command.");
@@ -75,6 +62,15 @@ void sendFileToModem(TinyGsm& modem, File file, const char* filename) {
             totalSize -= bytesWritten;
 
             Serial.printf("Sent %d bytes, %d bytes remaining\n", bytesWritten, totalSize);
+
+            // Wait for the modem to respond with OK before sending the next chunk
+            String ack = "";
+            uint32_t t = millis();
+            while (millis() - t < 10000) {
+                while (modem.stream.available()) ack += (char)modem.stream.read();
+                if (ack.indexOf("OK") != -1 || ack.indexOf("ERROR") != -1) break;
+            }
+            Serial.print("Write ack: "); Serial.println(ack);
         } else {
             Serial.println("Failed to read chunk from file");
             return;
@@ -133,30 +129,21 @@ bool isFileCorrectOnModem(TinyGsm& modem, const char* filename, size_t expectedS
 
 bool send_all_certs_to_modem(TinyGsm& modem) {
     Serial.println("send_all_certs_to_modem");
+    // device_combined.pem = device.crt + device.key in one file, required by AT+SMSSL
     const char* filenames[] = {"device.key", "AmazonRootCA1.pem", "device.crt"};
 
-    // 3. UPLOAD all files while the session is open
     for (const char* fname : filenames) {
         fs::File f = LittleFS.open(String("/") + fname, FILE_READ);
-        if (f) {
+        if (!f) continue;
 
-            //// first check if the file is already on the modem
-            //size_t localSize = f.size();
-            //if (isFileCorrectOnModem(modem, fname, localSize)) {
-            //    f.close();
-            //    continue; // Skip to the next file
-            //}
-            flushModem(modem);
-            Serial.printf("Uploading %s...\n", fname);
-            sendFileToModem(modem, f, fname);
-            f.close();
-            // Let the modem breathe between files
-            delay(1000);
-        }
+        size_t localSize = f.size();
+
+        Serial.printf("Uploading %s (%d bytes)...\n", fname, localSize);
+        sendFileToModem(modem, f, fname);
+        f.close();
+        delay(500);
     }
-    
-    Serial.println("All uploads finished. Giving the modem 5 seconds to index everything...");
-    delay(5000); // The "Universal Fix" for the last file
+
     Serial.println("OK -----------\n\n");
     return true;
 }
