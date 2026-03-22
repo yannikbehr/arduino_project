@@ -2,7 +2,7 @@
 # otherwise leave empty to build/upload all.
 ENV = 
 
-.PHONY: build upload clean monitor monitor-log
+.PHONY: build upload clean monitor monitor-log certs-der
 
 # Build the project
 build:
@@ -44,3 +44,6 @@ certs/AmazonRootCA1.pem:
 	curl https://www.amazontrust.com/repository/AmazonRootCA1.pem -o certs/AmazonRootCA1.pem
 
 certs: certs/device.crt certs/device.key certs/AmazonRootCA1.pem
+
+certs-der: certs/device.crt certs/device.key
+	python3 gen_certs_der.py
