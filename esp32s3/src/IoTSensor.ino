@@ -1,6 +1,5 @@
 #include <Arduino.h>
-#include "setup.h"
-#include "liligo_tools.h"
+#include "modem.h"
 #include <SSLClient.h>
 #include "ssl_certs_der.h"
 #include <PubSubClient.h>
