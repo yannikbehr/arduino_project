@@ -17,7 +17,7 @@ StreamDebugger debugger(Serial1, Serial);
 
 XPowersPMU PMU;
 
-bool PMU_setup() {
+bool PMU_setup(bool enable_modem = true) {
     Serial.println("PMU_setup");
     if (!PMU.begin(Wire, AXP2101_SLAVE_ADDRESS, I2C_SDA, I2C_SCL)) {
         Serial.println("Failed to initialize power.....");
@@ -41,20 +41,20 @@ bool PMU_setup() {
     // ESP32S3 power supply cannot be turned off
     // PMU.disableDC1();
 
-    if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_UNDEFINED) {
-        PMU.disableDC3();
-        delay(200);
-    }
-
     // BLDO1 controls 3.3V level conversion — do not disable
     PMU.setBLDO1Voltage(3300);
     PMU.enableBLDO1();
 
-    PMU.setDC3Voltage(3000);  // SIM7080 main power (2700–3400mV)
-    PMU.enableDC3();
-
-    PMU.setBLDO2Voltage(3300);
-    PMU.enableBLDO2();  // GPS antenna power
+    if (enable_modem) {
+        if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_UNDEFINED) {
+            PMU.disableDC3();
+            delay(200);
+        }
+        PMU.setDC3Voltage(3000);  // SIM7080 main power (2700–3400mV)
+        PMU.enableDC3();
+    } else {
+        PMU.disableDC3();
+    }
 
     return true;
 }

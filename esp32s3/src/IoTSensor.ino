@@ -9,8 +9,17 @@
 #define MQTT_CLIENT_ID "T-SIM7080G_01"
 #define MQTT_TOPIC     "devices/SIM7080G_01/data"
 
+// --- Timing (swap these for production) ---
+#define SLEEP_INTERVAL_S   10          // dev: 10s  | production: 600
+#define SEND_EVERY_N       6           // send every N readings (~1 min dev | ~1 hr production)
+
+// --- Persistent state across deep sleeps ---
+RTC_DATA_ATTR static float measurements[SEND_EVERY_N];
+RTC_DATA_ATTR static int   measurement_count = 0;
+
+// --- MQTT / SSL (re-initialised each send cycle) ---
 TinyGsm modem(SerialAT);
-TinyGsmClient tcpClient(modem, 0);  // plain TCP — SSL handled by BearSSL on ESP32
+TinyGsmClient tcpClient(modem, 0);
 SSLClient sslClient(tcpClient, TAs, TAs_NUM, A0, 4096, SSLClient::SSL_WARN);
 PubSubClient mqtt(sslClient);
 
@@ -20,65 +29,75 @@ SSLClientParameters mTLS = SSLClientParameters::fromDER(
     (const char*)client_key_der, client_key_der_len
 );
 
-int num_msg = 0;
-unsigned long lastPublishTime = 0;
+// --- Fake sensor — replace with real read ---
+float read_sensor() {
+    return 20.0f + (esp_random() % 100) * 0.1f;
+}
 
-void setup()
-{
-    Serial.begin(115200);
+void go_to_sleep() {
+    Serial.printf("Sleeping for %ds. Next send in %d readings.\n",
+                  SLEEP_INTERVAL_S, SEND_EVERY_N - measurement_count);
+    Serial.flush();
+    esp_sleep_enable_timer_wakeup((uint64_t)SLEEP_INTERVAL_S * 1000000ULL);
+    esp_deep_sleep_start();
+}
 
-    PMU_setup();
+bool send_batch() {
+    PMU_setup(true);
     basic_modem_setup(modem);
     modem.sendAT(GF("+CSCLK=0")); modem.waitResponse();
 
-    connect_GSM_1nce(modem);
+    if (!connect_GSM_1nce(modem)) return false;
 
     sslClient.setMutualAuthParams(mTLS);
-
     mqtt.setServer(MQTT_BROKER, MQTT_PORT);
     mqtt.setBufferSize(512);
-    mqtt.setKeepAlive(120);  // AWS timeout = 120*1.5 = 180s; prevents MQTT_KEEP_ALIVE_TIMEOUT
+    mqtt.setKeepAlive(120);
 
-    Serial.println("Setup complete. Entering loop.");
+    Serial.println("Connecting MQTT...");
+    if (!mqtt.connect(MQTT_CLIENT_ID)) {
+        Serial.printf("MQTT connect failed, rc=%d\n", mqtt.state());
+        return false;
+    }
+    Serial.println("MQTT connected.");
+
+    // Build JSON: {"readings":[20.1,21.3,...]}
+    char payload[128];
+    int pos = snprintf(payload, sizeof(payload), "{\"readings\":[");
+    for (int i = 0; i < measurement_count; i++) {
+        pos += snprintf(payload + pos, sizeof(payload) - pos,
+                        i ? ",%.1f" : "%.1f", measurements[i]);
+    }
+    snprintf(payload + pos, sizeof(payload) - pos, "]}");
+
+    bool ok = mqtt.publish(MQTT_TOPIC, payload);
+    mqtt.loop();  // flush BearSSL buffer → AT+CASEND
+    Serial.printf("Publish %s: %s\n", ok ? "OK" : "FAILED", payload);
+
+    mqtt.disconnect();
+    modem.gprsDisconnect();
+    return ok;
 }
 
-bool reconnect() {
-    Serial.println("Connecting MQTT (SSLClient/BearSSL)...");
-    if (mqtt.connect(MQTT_CLIENT_ID)) {
-        Serial.println("MQTT connected!");
-        Serial.println("OK -----------\n\n");
-        return true;
+void setup() {
+    Serial.begin(115200);
+
+    // Collect one reading
+    float sample = read_sensor();
+    measurements[measurement_count++] = sample;
+    Serial.printf("Reading %d/%d: %.1f\n", measurement_count, SEND_EVERY_N, sample);
+
+    if (measurement_count >= SEND_EVERY_N) {
+        PMU_setup(true);
+        send_batch();
+        measurement_count = 0;  // reset regardless of success to avoid getting stuck
+    } else {
+        PMU_setup(false);  // modem not needed — keep it off to save power
     }
-    Serial.printf("MQTT connect failed, rc=%d\n", mqtt.state());
-    Serial.println("FAILED -----------\n\n");
-    return false;
+
+    go_to_sleep();
 }
 
-void loop()
-{
-    mqtt.loop();
-
-    if (!mqtt.connected()) {
-        if (!reconnect()) {
-            delay(5000);
-            return;
-        }
-    }
-
-    unsigned long now = millis();
-    if (num_msg < 10 && now - lastPublishTime >= 30000) {
-        char payload[64];
-        snprintf(payload, sizeof(payload), "{\"temp\": 1.1111, \"msg\": %d}", num_msg);
-        if (mqtt.publish(MQTT_TOPIC, payload)) {
-            // Call mqtt.loop() to flush BearSSL's buffered data (triggers AT+CASEND)
-            mqtt.loop();
-            Serial.println("Publish successful!");
-            num_msg++;
-        } else {
-            Serial.println("Publish failed.");
-        }
-        lastPublishTime = now;
-    }
-
-    delay(100);
+void loop() {
+    // Never reached — device always deep sleeps from setup()
 }
