@@ -2,7 +2,7 @@
 # otherwise leave empty to build/upload all.
 ENV = 
 
-.PHONY: build upload clean monitor
+.PHONY: build upload clean monitor monitor-log
 
 # Build the project
 build:
@@ -16,9 +16,16 @@ upload:
 clean:
 	pio run $(if $(ENV),-e $(ENV)) -t clean
 
-# Open the serial monitor
+# Open the serial monitor (interactive)
 monitor:
 	pio device monitor
+
+# Non-interactive capture — writes to log.txt, usable by Claude Code.
+# Usage: make monitor-log          (90s default)
+#        make monitor-log DURATION=120
+DURATION ?= 90
+monitor-log:
+	python3 monitor_log.py $(DURATION) | tee log.txt
 
 
 certs/device.crt:

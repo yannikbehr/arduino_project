@@ -1,12 +1,15 @@
 
 #include "utilities.h"
 #define TINY_GSM_RX_BUFFER 1024 // Set RX buffer to 1Kb
-#define SerialAT Serial1
 
 // See all AT commands, if wanted
 #define DUMP_AT_COMMANDS
 #define TINY_GSM_MODEM_SIM7080
 #include <TinyGsmClient.h>
+#include <StreamDebugger.h>
+
+StreamDebugger debugger(Serial1, Serial);
+#define SerialAT debugger
 
 #define XPOWERS_CHIP_AXP2101
 #include "XPowersLib.h"
