@@ -142,7 +142,7 @@ bool basic_modem_setup(TinyGsm& modem){
   return false;
 }
 
-bool connect_GSM_1nce(TinyGsm& modem){
+bool connect_GSM_1nce(TinyGsm& modem, int retries=10){
   Serial.println("connect_GSM_1nce");
   if (!modem.restart()) {
     Serial.println("Failed to restart modem!");
@@ -150,35 +150,37 @@ bool connect_GSM_1nce(TinyGsm& modem){
     return false;
   }
   // 'iot.1nce.net' standard global APN.
-  Serial.println("Connecting to 1NCE...");
-  if (!modem.gprsConnect("iot.1nce.net", "", "")) {
-    Serial.println("GPRS Connect failed!");
+  Serial.println("Waiting for network registration...");
+  if (!modem.waitForNetwork(60000)) {
+    Serial.println("Network registration timed out.");
     Serial.println("FAILED -----------\n\n");
     return false;
-  } else {
-    Serial.println("Connected to 1NCE!");
-    Serial.print("IP Address: ");
-    Serial.println(modem.localIP());
   }
-  Serial.println("OK -----------\n\n");
-  return true;
+  Serial.println("Network registered.");
+
+  for (int i = 0; i < retries; i++) {
+    Serial.printf("Connecting to 1NCE (attempt %d/%d)...\n", i + 1, retries);
+    if (modem.gprsConnect("iot.1nce.net", "", "")) {
+      Serial.println("Connected to 1NCE!");
+      Serial.print("IP Address: ");
+      Serial.println(modem.localIP());
+      Serial.println("OK -----------\n\n");
+      return true;
+    }
+    Serial.println("GPRS Connect failed, retrying...");
+    delay(5000);
+  }
+  Serial.println("GPRS Connect failed after all retries.");
+  Serial.println("FAILED -----------\n\n");
+  return false;
 }
 
 
 bool configure_endpoint(TinyGsm& modem){
     Serial.println("configure_endpoint");
-
-    // Force Clean Session to 1. This tells the modem to release SSL resources on disconnect.
     run_AT_cmd(modem, "+SMCONF=\"cleanss\",1");
-
-    // Set the client ID (the "Thing" name from your Terraform)
     run_AT_cmd(modem, "+SMCONF=\"CLIENTID\",\"T-SIM7080G_01\"");
-    
-    // See terraform Makefile
     run_AT_cmd(modem, "+SMCONF=\"URL\",\"a3fu7j5avgf87g-ats.iot.eu-west-3.amazonaws.com\",8883");
-    
-    // Enable SSL 
-    run_AT_cmd(modem, "+SMCONF=\"SSL\",0");
     Serial.println("OK -----------\n\n");
     return true;
 }

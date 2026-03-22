@@ -15,6 +15,12 @@ TinyGsmClient tcpClient(modem, 0);  // plain TCP — SSL handled by BearSSL on E
 SSLClient sslClient(tcpClient, TAs, TAs_NUM, A0);
 PubSubClient mqtt(sslClient);
 
+// Must be global — sslClient holds a pointer into this object
+SSLClientParameters mTLS = SSLClientParameters::fromDER(
+    (const char*)client_cert_der, client_cert_der_len,
+    (const char*)client_key_der, client_key_der_len
+);
+
 int num_msg = 0;
 
 void setup()
@@ -27,11 +33,6 @@ void setup()
 
     connect_GSM_1nce(modem);
 
-    // Set mutual TLS client cert + private key (BearSSL handles TLS on ESP32 side)
-    SSLClientParameters mTLS = SSLClientParameters::fromDER(
-        (const char*)client_cert_der, client_cert_der_len,
-        (const char*)client_key_der, client_key_der_len
-    );
     sslClient.setMutualAuthParams(mTLS);
 
     mqtt.setServer(MQTT_BROKER, MQTT_PORT);
