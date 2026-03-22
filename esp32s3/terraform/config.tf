@@ -139,6 +139,30 @@ resource "aws_lambda_permission" "allow_iot_core" {
 }
 
 
+# IoT logging role
+resource "aws_iam_role" "iot_logging_role" {
+  name = "IoTLoggingRole"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "iot.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "iot_logging_cloudwatch" {
+  role       = aws_iam_role.iot_logging_role.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
+}
+
+# AWS IoT account-level logging
+resource "aws_iot_logging_options" "default" {
+  default_log_level = "INFO"
+  role_arn          = aws_iam_role.iot_logging_role.arn
+}
+
 output "certificate_pem" {
   value       = aws_iot_certificate.cert.certificate_pem
   description = "The device certificate"
