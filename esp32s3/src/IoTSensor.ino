@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include "driver/rtc_io.h"
 #include "modem.h"
 #include <SSLClient.h>
 #include "ssl_certs_der.h"
@@ -15,9 +16,12 @@
 
 // --- Sensor reading ---
 struct SensorReading {
-    uint32_t ts;   // Unix timestamp (estimated)
+    uint32_t ts;        // Unix timestamp (estimated)
     float    t1;
     float    t2;
+    uint16_t batt_mv;   // Battery voltage in mV
+    int8_t   batt_pct;  // Battery percentage 0–100
+    bool     charging;
 };
 
 // --- Persistent state across deep sleeps ---
@@ -44,6 +48,9 @@ SensorReading read_sensors() {
         next_ts,
         20.0f + (esp_random() % 100) * 0.1f,  // t1
         15.0f + (esp_random() % 100) * 0.1f,  // t2
+        (uint16_t)PMU.getBattVoltage(),
+        (int8_t)PMU.getBatteryPercent(),
+        PMU.isCharging(),
     };
 }
 
@@ -62,7 +69,10 @@ void go_to_sleep() {
                   SLEEP_INTERVAL_S, SEND_EVERY_N - measurement_count);
     Serial.flush();
     esp_sleep_enable_timer_wakeup((uint64_t)SLEEP_INTERVAL_S * 1000000ULL);
-    esp_sleep_enable_ext1_wakeup(1ULL << 0, ESP_EXT1_WAKEUP_ANY_LOW);  // BOOT button = GPIO0
+    // BOOT button = GPIO0, active LOW. Enable RTC pull-up so the pin isn't floating during sleep.
+    rtc_gpio_pullup_en(GPIO_NUM_0);
+    rtc_gpio_pulldown_dis(GPIO_NUM_0);
+    esp_sleep_enable_ext1_wakeup(1ULL << 0, ESP_EXT1_WAKEUP_ANY_LOW);
     esp_deep_sleep_start();
 }
 
@@ -75,7 +85,7 @@ bool send_batch() {
 
     sslClient.setMutualAuthParams(mTLS);
     mqtt.setServer(MQTT_BROKER, MQTT_PORT);
-    mqtt.setBufferSize(512);
+    mqtt.setBufferSize(1024);
     mqtt.setKeepAlive(120);
 
     Serial.println("Connecting MQTT...");
@@ -85,14 +95,15 @@ bool send_batch() {
     }
     Serial.println("MQTT connected.");
 
-    // Build JSON: {"readings":[{"ts":0,"t1":23.1,"t2":18.4},...]}
-    char payload[256];
+    // Build JSON: {"readings":[{"ts":0,"t1":23.1,"t2":18.4,"batt_mv":3950,"batt_pct":82,"charging":false},...]}
+    char payload[512];
     int pos = snprintf(payload, sizeof(payload), "{\"readings\":[");
     for (int i = 0; i < measurement_count; i++) {
         const SensorReading& r = measurements[i];
         pos += snprintf(payload + pos, sizeof(payload) - pos,
-                        "%s{\"ts\":%lu,\"t1\":%.1f,\"t2\":%.1f}",
-                        i ? "," : "", r.ts, r.t1, r.t2);
+                        "%s{\"ts\":%lu,\"t1\":%.1f,\"t2\":%.1f,\"batt_mv\":%u,\"batt_pct\":%d,\"charging\":%s}",
+                        i ? "," : "", r.ts, r.t1, r.t2,
+                        r.batt_mv, r.batt_pct, r.charging ? "true" : "false");
     }
     snprintf(payload + pos, sizeof(payload) - pos, "]}");
 
@@ -107,18 +118,18 @@ bool send_batch() {
 
 void setup() {
     Serial.begin(115200);
+    PMU_setup(false);  // always init PMU first — needed for battery readings; modem enabled later if sending
 
     SensorReading r = read_sensors();
     measurements[measurement_count++] = r;
-    Serial.printf("Reading %d/%d: ts=%lu t1=%.1f t2=%.1f\n",
-                  measurement_count, SEND_EVERY_N, r.ts, r.t1, r.t2);
+    Serial.printf("Reading %d/%d: ts=%lu t1=%.1f t2=%.1f batt=%dmV %d%% %s\n",
+                  measurement_count, SEND_EVERY_N, r.ts, r.t1, r.t2,
+                  r.batt_mv, r.batt_pct, r.charging ? "charging" : "");
 
     if (measurement_count >= SEND_EVERY_N) {
         send_batch();
         measurement_count = 0;  // reset regardless of success to avoid getting stuck
         PMU.disableDC3();       // power down modem before sleep — PMU holds DC3 on independently
-    } else {
-        PMU_setup(false);  // modem not needed — keep it off to save power
     }
 
     go_to_sleep();
