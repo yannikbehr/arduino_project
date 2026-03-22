@@ -12,7 +12,7 @@
 
 TinyGsm modem(SerialAT);
 TinyGsmClient tcpClient(modem, 0);  // plain TCP — SSL handled by BearSSL on ESP32
-SSLClient sslClient(tcpClient, TAs, TAs_NUM, A0);
+SSLClient sslClient(tcpClient, TAs, TAs_NUM, A0, 4096, SSLClient::SSL_WARN);
 PubSubClient mqtt(sslClient);
 
 // Must be global — sslClient holds a pointer into this object
@@ -22,6 +22,7 @@ SSLClientParameters mTLS = SSLClientParameters::fromDER(
 );
 
 int num_msg = 0;
+unsigned long lastPublishTime = 0;
 
 void setup()
 {
@@ -37,6 +38,7 @@ void setup()
 
     mqtt.setServer(MQTT_BROKER, MQTT_PORT);
     mqtt.setBufferSize(512);
+    mqtt.setKeepAlive(120);  // AWS timeout = 120*1.5 = 180s; prevents MQTT_KEEP_ALIVE_TIMEOUT
 
     Serial.println("Setup complete. Entering loop.");
 }
@@ -55,25 +57,29 @@ bool reconnect() {
 
 void loop()
 {
-    Serial.println("loop");
     mqtt.loop();
 
     if (!mqtt.connected()) {
         if (!reconnect()) {
-            delay(10000);
+            delay(5000);
             return;
         }
     }
 
-    if (num_msg < 10) {
+    unsigned long now = millis();
+    if (num_msg < 10 && now - lastPublishTime >= 30000) {
         char payload[64];
         snprintf(payload, sizeof(payload), "{\"temp\": 1.1111, \"msg\": %d}", num_msg);
         if (mqtt.publish(MQTT_TOPIC, payload)) {
+            // Call mqtt.loop() to flush BearSSL's buffered data (triggers AT+CASEND)
+            mqtt.loop();
             Serial.println("Publish successful!");
             num_msg++;
         } else {
             Serial.println("Publish failed.");
         }
+        lastPublishTime = now;
     }
-    delay(30000);
+
+    delay(100);
 }
