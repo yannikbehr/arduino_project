@@ -29,7 +29,7 @@ void setup()
 
     PMU_setup();
     basic_modem_setup(modem);
-    cmd_get_return(modem, "AT+CSCLK=0");
+    modem.sendAT(GF("+CSCLK=0")); modem.waitResponse();
 
     connect_GSM_1nce(modem);
 

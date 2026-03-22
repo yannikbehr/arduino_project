@@ -8,7 +8,6 @@
 #include <TinyGsmClient.h>
 #include <StreamDebugger.h>
 
-#include "at_utils.h"
 
 StreamDebugger debugger(Serial1, Serial);
 #define SerialAT debugger
