@@ -10,12 +10,21 @@
 #define MQTT_TOPIC     "devices/SIM7080G_01/data"
 
 // --- Timing (swap these for production) ---
-#define SLEEP_INTERVAL_S   10          // dev: 10s  | production: 600
-#define SEND_EVERY_N       6           // send every N readings (~1 min dev | ~1 hr production)
+#define SLEEP_INTERVAL_S   60         // dev: 10s  | production: 600
+#define SEND_EVERY_N       3           // send every N readings 
+
+// --- Sensor reading ---
+struct SensorReading {
+    uint32_t ts;   // Unix timestamp (estimated)
+    float    t1;
+    float    t2;
+};
 
 // --- Persistent state across deep sleeps ---
-RTC_DATA_ATTR static float measurements[SEND_EVERY_N];
-RTC_DATA_ATTR static int   measurement_count = 0;
+RTC_DATA_ATTR static SensorReading measurements[SEND_EVERY_N];
+RTC_DATA_ATTR static int            measurement_count = 0;
+RTC_DATA_ATTR static uint32_t       next_ts = 0;  // estimated Unix time of next reading
+                                                   // TODO: sync from modem AT+CCLK on connect
 
 // --- MQTT / SSL (re-initialised each send cycle) ---
 TinyGsm modem(SerialAT);
@@ -29,16 +38,31 @@ SSLClientParameters mTLS = SSLClientParameters::fromDER(
     (const char*)client_key_der, client_key_der_len
 );
 
-// --- Fake sensor — replace with real read ---
-float read_sensor() {
-    return 20.0f + (esp_random() % 100) * 0.1f;
+// --- Fake sensors — replace with real reads ---
+SensorReading read_sensors() {
+    return {
+        next_ts,
+        20.0f + (esp_random() % 100) * 0.1f,  // t1
+        15.0f + (esp_random() % 100) * 0.1f,  // t2
+    };
 }
 
 void go_to_sleep() {
+    next_ts += SLEEP_INTERVAL_S;
+
+    // If USB is connected, stay awake so the port remains visible for firmware upload.
+    // Unplug USB to resume normal deep-sleep operation.
+    delay(200);  // allow USB to enumerate
+    if (Serial) {
+        Serial.println("USB connected — staying awake for upload. Unplug to resume.");
+        while (true) delay(1000);
+    }
+
     Serial.printf("Sleeping for %ds. Next send in %d readings.\n",
                   SLEEP_INTERVAL_S, SEND_EVERY_N - measurement_count);
     Serial.flush();
     esp_sleep_enable_timer_wakeup((uint64_t)SLEEP_INTERVAL_S * 1000000ULL);
+    esp_sleep_enable_ext1_wakeup(1ULL << 0, ESP_EXT1_WAKEUP_ANY_LOW);  // BOOT button = GPIO0
     esp_deep_sleep_start();
 }
 
@@ -61,12 +85,14 @@ bool send_batch() {
     }
     Serial.println("MQTT connected.");
 
-    // Build JSON: {"readings":[20.1,21.3,...]}
-    char payload[128];
+    // Build JSON: {"readings":[{"ts":0,"t1":23.1,"t2":18.4},...]}
+    char payload[256];
     int pos = snprintf(payload, sizeof(payload), "{\"readings\":[");
     for (int i = 0; i < measurement_count; i++) {
+        const SensorReading& r = measurements[i];
         pos += snprintf(payload + pos, sizeof(payload) - pos,
-                        i ? ",%.1f" : "%.1f", measurements[i]);
+                        "%s{\"ts\":%lu,\"t1\":%.1f,\"t2\":%.1f}",
+                        i ? "," : "", r.ts, r.t1, r.t2);
     }
     snprintf(payload + pos, sizeof(payload) - pos, "]}");
 
@@ -82,15 +108,15 @@ bool send_batch() {
 void setup() {
     Serial.begin(115200);
 
-    // Collect one reading
-    float sample = read_sensor();
-    measurements[measurement_count++] = sample;
-    Serial.printf("Reading %d/%d: %.1f\n", measurement_count, SEND_EVERY_N, sample);
+    SensorReading r = read_sensors();
+    measurements[measurement_count++] = r;
+    Serial.printf("Reading %d/%d: ts=%lu t1=%.1f t2=%.1f\n",
+                  measurement_count, SEND_EVERY_N, r.ts, r.t1, r.t2);
 
     if (measurement_count >= SEND_EVERY_N) {
-        PMU_setup(true);
         send_batch();
         measurement_count = 0;  // reset regardless of success to avoid getting stuck
+        PMU.disableDC3();       // power down modem before sleep — PMU holds DC3 on independently
     } else {
         PMU_setup(false);  // modem not needed — keep it off to save power
     }
