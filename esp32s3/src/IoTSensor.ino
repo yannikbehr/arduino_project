@@ -11,8 +11,8 @@
 #define MQTT_TOPIC     "devices/SIM7080G_01/data"
 
 // --- Timing (swap these for production) ---
-#define SLEEP_INTERVAL_S   60         // dev: 10s  | production: 600
-#define SEND_EVERY_N       3           // send every N readings 
+#define SLEEP_INTERVAL_S   600         // dev: 60s  | production: 600
+#define SEND_EVERY_N       6           // send every N readings
 
 // --- Sensor reading ---
 struct SensorReading {
@@ -52,28 +52,6 @@ SensorReading read_sensors() {
         (int8_t)PMU.getBatteryPercent(),
         PMU.isCharging(),
     };
-}
-
-void go_to_sleep() {
-    next_ts += SLEEP_INTERVAL_S;
-
-    // If USB is connected, stay awake so the port remains visible for firmware upload.
-    // Unplug USB to resume normal deep-sleep operation.
-    delay(200);  // allow USB to enumerate
-    if (Serial) {
-        Serial.println("USB connected — staying awake for upload. Unplug to resume.");
-        while (true) delay(1000);
-    }
-
-    Serial.printf("Sleeping for %ds. Next send in %d readings.\n",
-                  SLEEP_INTERVAL_S, SEND_EVERY_N - measurement_count);
-    Serial.flush();
-    esp_sleep_enable_timer_wakeup((uint64_t)SLEEP_INTERVAL_S * 1000000ULL);
-    // BOOT button = GPIO0, active LOW. Enable RTC pull-up so the pin isn't floating during sleep.
-    rtc_gpio_pullup_en(GPIO_NUM_0);
-    rtc_gpio_pulldown_dis(GPIO_NUM_0);
-    esp_sleep_enable_ext1_wakeup(1ULL << 0, ESP_EXT1_WAKEUP_ANY_LOW);
-    esp_deep_sleep_start();
 }
 
 bool send_batch() {
@@ -118,6 +96,9 @@ bool send_batch() {
 
 void setup() {
     Serial.begin(115200);
+}
+
+void loop() {
     PMU_setup(false);  // always init PMU first — needed for battery readings; modem enabled later if sending
 
     SensorReading r = read_sensors();
@@ -132,9 +113,25 @@ void setup() {
         PMU.disableDC3();       // power down modem before sleep — PMU holds DC3 on independently
     }
 
-    go_to_sleep();
-}
+    next_ts += SLEEP_INTERVAL_S;
 
-void loop() {
-    // Never reached — device always deep sleeps from setup()
+    // When USB is connected: delay instead of deep sleep so the port stays visible for upload.
+    // This is not reliable, it may be true even if USB is not plugged
+    delay(200);  
+    if (Serial) {
+        int usb_delay = 300 * 1000; 
+        Serial.printf("USB connected — delaying %ds instead of sleeping.\n", usb_delay);
+        delay(usb_delay); 
+        return;
+    }
+
+    Serial.printf("Sleeping for %ds. Next send in %d readings.\n",
+                  SLEEP_INTERVAL_S, SEND_EVERY_N - measurement_count);
+    Serial.flush();
+    // BOOT button = GPIO0, active LOW. Enable RTC pull-up so the pin isn't floating during sleep.
+    rtc_gpio_pullup_en(GPIO_NUM_0);
+    rtc_gpio_pulldown_dis(GPIO_NUM_0);
+    esp_sleep_enable_ext1_wakeup(1ULL << 0, ESP_EXT1_WAKEUP_ANY_LOW);
+    esp_sleep_enable_timer_wakeup((uint64_t)SLEEP_INTERVAL_S * 1000000ULL);
+    esp_deep_sleep_start();
 }
