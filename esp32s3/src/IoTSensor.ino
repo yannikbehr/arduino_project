@@ -54,25 +54,34 @@ SensorReading read_sensors() {
     };
 }
 
+void on_config(char* topic, byte* payload, unsigned int len) {
+    Serial.printf("[config] %.*s\n", (int)len, (char*)payload);
+}
+
 bool send_batch() {
+    Serial.println("--- Send cycle start ---");
+
+    Serial.println("[1/4] Powering modem...");
     PMU_setup(true);
     basic_modem_setup(modem);
     modem.sendAT(GF("+CSCLK=0")); modem.waitResponse();
 
+    Serial.println("[2/4] Connecting to network...");
     if (!connect_GSM_1nce(modem)) return false;
 
+    Serial.println("[3/4] Connecting MQTT...");
     sslClient.setMutualAuthParams(mTLS);
     mqtt.setServer(MQTT_BROKER, MQTT_PORT);
     mqtt.setBufferSize(1024);
     mqtt.setKeepAlive(120);
+    mqtt.setCallback(on_config);
 
-    Serial.println("Connecting MQTT...");
     if (!mqtt.connect(MQTT_CLIENT_ID)) {
         Serial.printf("MQTT connect failed, rc=%d\n", mqtt.state());
         return false;
     }
-    Serial.println("MQTT connected.");
 
+    Serial.printf("[4/4] Publishing %d readings...\n", measurement_count);
     // Build JSON: {"readings":[{"ts":0,"t1":23.1,"t2":18.4,"batt_mv":3950,"batt_pct":82,"charging":false},...]}
     char payload[512];
     int pos = snprintf(payload, sizeof(payload), "{\"readings\":[");
@@ -85,12 +94,19 @@ bool send_batch() {
     }
     snprintf(payload + pos, sizeof(payload) - pos, "]}");
 
+    mqtt.subscribe("devices/SIM7080G_01/config");
+    sslClient.flush();  // send SUBSCRIBE to broker immediately
+    delay(1000);        // wait for SUBACK + retained PUBLISH over LTE
+    mqtt.loop();        // process SUBACK (one SSL record)
+    mqtt.loop();        // process retained PUBLISH → on_config fires
+
     bool ok = mqtt.publish(MQTT_TOPIC, payload);
     mqtt.loop();  // flush BearSSL buffer → AT+CASEND
-    Serial.printf("Publish %s: %s\n", ok ? "OK" : "FAILED", payload);
+    Serial.printf("Publish %s\n", ok ? "OK" : "FAILED");
 
     mqtt.disconnect();
     modem.gprsDisconnect();
+    Serial.println("--- Send cycle done ---");
     return ok;
 }
 
@@ -103,9 +119,9 @@ void loop() {
 
     SensorReading r = read_sensors();
     measurements[measurement_count++] = r;
-    Serial.printf("Reading %d/%d: ts=%lu t1=%.1f t2=%.1f batt=%dmV %d%% %s\n",
+    Serial.printf("[reading %d/%d] ts=%lu t1=%.1f t2=%.1f batt=%dmV %d%%%s\n",
                   measurement_count, SEND_EVERY_N, r.ts, r.t1, r.t2,
-                  r.batt_mv, r.batt_pct, r.charging ? "charging" : "");
+                  r.batt_mv, r.batt_pct, r.charging ? " charging" : "");
 
     if (measurement_count >= SEND_EVERY_N) {
         send_batch();
@@ -117,15 +133,15 @@ void loop() {
 
     // When USB is connected: delay instead of deep sleep so the port stays visible for upload.
     // This is not reliable, it may be true even if USB is not plugged
-    delay(200);  
+    delay(200);
     if (Serial) {
-        int usb_delay = 300 * 1000; 
-        Serial.printf("USB connected — delaying %ds instead of sleeping.\n", usb_delay);
-        delay(usb_delay); 
+        int usb_delay = 300 * 1000;
+        Serial.printf("[sleep] USB detected — delaying %ds instead of sleeping.\n", usb_delay / 1000);
+        delay(usb_delay);
         return;
     }
 
-    Serial.printf("Sleeping for %ds. Next send in %d readings.\n",
+    Serial.printf("[sleep] %ds. Next send in %d readings.\n",
                   SLEEP_INTERVAL_S, SEND_EVERY_N - measurement_count);
     Serial.flush();
     // BOOT button = GPIO0, active LOW. Enable RTC pull-up so the pin isn't floating during sleep.

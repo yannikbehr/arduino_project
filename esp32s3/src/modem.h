@@ -2,15 +2,21 @@
 
 #include "board.h"
 
+// #define VERBOSE_AT   // uncomment to log all AT traffic to Serial
+
 #define TINY_GSM_RX_BUFFER 1024
+#ifdef VERBOSE_AT
 #define DUMP_AT_COMMANDS
+#endif
 #define TINY_GSM_MODEM_SIM7080
 #include <TinyGsmClient.h>
+#ifdef VERBOSE_AT
 #include <StreamDebugger.h>
-
-
 StreamDebugger debugger(Serial1, Serial);
 #define SerialAT debugger
+#else
+#define SerialAT Serial1
+#endif
 
 #define XPOWERS_CHIP_AXP2101
 #include "XPowersLib.h"

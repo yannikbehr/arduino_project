@@ -87,9 +87,14 @@ resource "aws_iot_policy" "esp32_policy" {
         Resource = ["*"]
       },
       {
-        Action   = ["iot:Publish", "iot:Subscribe"]
+        Action   = ["iot:Publish", "iot:Receive"]
         Effect   = "Allow"
         Resource = ["arn:aws:iot:*:*:topic/devices/*"]
+      },
+      {
+        Action   = ["iot:Subscribe"]
+        Effect   = "Allow"
+        Resource = ["arn:aws:iot:*:*:topicfilter/devices/*"]
       }
     ]
   })
