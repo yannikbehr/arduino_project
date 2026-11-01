@@ -30,6 +30,40 @@ resource "aws_iam_role_policy_attachment" "lambda_logs" {
 
 
 
+# 4. Allow the Lambda to store readings
+resource "aws_iam_role_policy" "lambda_dynamodb_write" {
+  name = "write-sensor-readings"
+  role = aws_iam_role.iot_lambda_role.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action   = ["dynamodb:BatchWriteItem"]
+      Effect   = "Allow"
+      Resource = aws_dynamodb_table.sensor_readings.arn
+    }]
+  })
+}
+
+
+# Sensor readings, one item per reading
+resource "aws_dynamodb_table" "sensor_readings" {
+  name         = "esp32_sensor_readings"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "device_id"
+  range_key    = "ts"
+
+  attribute {
+    name = "device_id"
+    type = "S"
+  }
+
+  attribute {
+    name = "ts"
+    type = "N"
+  }
+}
+
+
 # 1. Package the code
 data "archive_file" "lambda_zip" {
   type        = "zip"
@@ -49,7 +83,8 @@ resource "aws_lambda_function" "iot_processor" {
   # Environment variables for your future DB connection or AWS IoT Endpoint
   environment {
     variables = {
-      IOT_TOPIC = "devices/esp32/config"
+      IOT_TOPIC  = "devices/esp32/config"
+      TABLE_NAME = aws_dynamodb_table.sensor_readings.name
     }
   }
 }
@@ -126,7 +161,7 @@ resource "aws_iot_topic_rule" "esp32_data_rule" {
   description = "Routes MQTT messages from ESP32 to Lambda"
   enabled     = true
   # Note: Use single quotes for the topic in SQL
-  sql         = "SELECT * FROM 'devices/+/data'"
+  sql         = "SELECT *, topic(2) AS device_id FROM 'devices/+/data'"
   sql_version = "2016-03-23"
 
   lambda {

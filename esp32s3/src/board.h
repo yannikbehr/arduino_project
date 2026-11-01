@@ -7,3 +7,5 @@
 #define BOARD_MODEM_PWR_PIN 41
 #define BOARD_MODEM_RXD_PIN  4
 #define BOARD_MODEM_TXD_PIN  5
+
+#define DHT_PIN             44

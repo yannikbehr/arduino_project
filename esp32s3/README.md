@@ -2,7 +2,7 @@
 
 ## What it does
 
-The device wakes every 10 minutes, reads two temperature sensors, and goes back to sleep. Once per hour (every 6 readings) it connects over LTE, sends a batch of measurements to AWS IoT Core via MQTT over mTLS, then powers down the modem and sleeps again.
+The device wakes every 10 minutes, reads temperature and humidity from a DHT11 (data on GPIO 44), and goes back to sleep. Once per hour (every 6 readings) it connects over LTE, sends a batch of measurements to AWS IoT Core via MQTT over mTLS, then powers down the modem and sleeps again.
 
 ## Infrastructure
 
@@ -10,7 +10,7 @@ The device wakes every 10 minutes, reads two temperature sensors, and goes back 
 Device (LilyGO T-SIM7080G)
   └─ LTE (1NCE SIM) ──► AWS IoT Core (MQTT, port 8883)
                               └─ IoT Rule ──► Lambda (esp32_sensor_processor)
-                                                  └─ DynamoDB
+                                                  └─ DynamoDB (esp32_sensor_readings)
 ```
 
 - **Connectivity**: 1NCE LTE SIM, MQTT over mTLS with device certificate issued by AWS IoT

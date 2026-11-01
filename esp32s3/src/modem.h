@@ -116,3 +116,28 @@ bool connect_GSM_1nce(TinyGsm& modem, int retries = 10) {
     Serial.println("GPRS Connect failed after all retries.");
     return false;
 }
+
+// Syncs the modem clock via NTP and returns Unix time, or 0 if no valid time is available.
+uint32_t get_network_time(TinyGsm& modem) {
+    byte ntp_result = modem.NTPServerSync("pool.ntp.org", 0);
+    Serial.printf("NTP sync: %s\n", modem.ShowNTPError(ntp_result).c_str());
+
+    int year, month, day, hour, minute, second;
+    float timezone;
+    if (!modem.getNetworkTime(&year, &month, &day, &hour, &minute, &second, &timezone)) {
+        return 0;
+    }
+    // An unsynced SIM7080 clock reads 2080/01/06
+    if (year < 2026 || year >= 2080) {
+        return 0;
+    }
+
+    struct tm t = {};
+    t.tm_year = year - 1900;
+    t.tm_mon  = month - 1;
+    t.tm_mday = day;
+    t.tm_hour = hour;
+    t.tm_min  = minute;
+    t.tm_sec  = second;
+    return mktime(&t) - (int32_t)(timezone * 3600);
+}
