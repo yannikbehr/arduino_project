@@ -2,7 +2,7 @@
 # otherwise leave empty to build/upload all.
 ENV = 
 
-.PHONY: build upload clean monitor monitor-log certs-der
+.PHONY: build upload clean monitor monitor-log certs-der data-today
 
 # Build the project
 build:
@@ -26,6 +26,13 @@ monitor:
 DURATION ?= 90
 monitor-log:
 	python3 monitor_log.py $(DURATION) | tee log.txt
+
+# Print today's readings from DynamoDB.
+# Usage: make data-today          (default device)
+#        make data-today DEVICE=SIM7080G_02
+DEVICE ?= SIM7080G_01
+data-today:
+	@python3 fetch_today.py $(DEVICE)
 
 
 certs/device.crt:
