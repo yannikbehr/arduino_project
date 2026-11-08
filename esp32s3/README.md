@@ -8,6 +8,12 @@ On USB it doesn't sleep: it sends every reading and stays connected, so config m
 
 A relay board input on GPIO 21 (100k pull-down to GND) switches the floor heating. The relay is off at boot and before every deep sleep.
 
+While the relay is on, the device stays awake and connected, so `heat-off` takes effect within seconds; it sends a reading every `sleep_s`. Safety:
+
+- The connection is checked every minute (MQTT keepalive 30 s). After 3 failed reconnects the relay switches off and the device goes back to the deep-sleep cycle. It switches on again only after a successful connect delivers the retained `relay:true`.
+- A task watchdog resets the board after 5 minutes without progress; the relay is off at boot.
+- Every relay change is reported at once as a reading with an `event` field (`command`, `serial`, `cutoff`). A cutoff while offline is queued and sent with the next successful connect.
+
 ### Config topic
 
 The device subscribes to `devices/SIM7080G_01/config` on every connect. Publish retained messages so the device picks them up after a power cut:
