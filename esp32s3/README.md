@@ -4,6 +4,24 @@
 
 The device wakes every 10 minutes, reads temperature and humidity from a DHT11 (data on GPIO 44), and goes back to sleep. Once per hour (every 6 readings) it connects over LTE, sends a batch of measurements to AWS IoT Core via MQTT over mTLS, then powers down the modem and sleeps again.
 
+On USB it doesn't sleep: it sends every reading and stays connected, so config messages arrive within a second.
+
+A relay board input on GPIO 21 (100k pull-down to GND) switches the floor heating. The relay is off at boot and before every deep sleep.
+
+### Config topic
+
+The device subscribes to `devices/SIM7080G_01/config` on every connect. Publish retained messages so the device picks them up after a power cut:
+
+```
+aws iot-data publish --region eu-west-3 --endpoint-url https://a3fu7j5avgf87g-ats.iot.eu-west-3.amazonaws.com \
+  --topic devices/SIM7080G_01/config --qos 1 --retain --payload '{"sleep_s":600,"relay":false}'
+```
+
+- `relay`: `true` / `false` switches the relay.
+- `sleep_s`: seconds between readings, accepted from 30 to 7200 (anything else is ignored). Saved in flash, so it survives a power cut.
+
+On USB serial, `relay on` / `relay off` switch the relay for bench tests.
+
 ## Infrastructure
 
 ```

@@ -9,3 +9,7 @@
 #define BOARD_MODEM_TXD_PIN  5
 
 #define DHT_PIN             44
+
+// Relay board input (NPN base via the board's own resistor). External 100k pull-down keeps it off
+// while the pin floats during reset, flashing and deep sleep.
+#define RELAY_PIN           21
