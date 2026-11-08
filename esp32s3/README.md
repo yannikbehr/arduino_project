@@ -20,6 +20,8 @@ aws iot-data publish --region eu-west-3 --endpoint-url https://a3fu7j5avgf87g-at
 - `relay`: `true` / `false` switches the relay.
 - `sleep_s`: seconds between readings, accepted from 30 to 7200 (anything else is ignored). Saved in flash, so it survives a power cut.
 
+Shortcuts, which read the current config and change one key: `make heat-on`, `make heat-off`, `make sleep SLEEP_S=900`, `make config` (show).
+
 On USB serial, `relay on` / `relay off` switch the relay for bench tests.
 
 ## Infrastructure

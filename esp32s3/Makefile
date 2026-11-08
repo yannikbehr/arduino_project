@@ -2,7 +2,7 @@
 # otherwise leave empty to build/upload all.
 ENV = 
 
-.PHONY: build upload clean monitor monitor-log certs-der data-today
+.PHONY: build upload clean monitor monitor-log certs-der data-today heat-on heat-off config sleep
 
 # Build the project
 build:
@@ -33,6 +33,23 @@ monitor-log:
 DEVICE ?= SIM7080G_01
 data-today:
 	@python3 fetch_today.py $(DEVICE)
+
+# Switch the heating relay via the retained config message (applied within a second on USB,
+# otherwise at the next connect).
+heat-on:
+	@python3 set_config.py $(DEVICE) relay=true
+
+heat-off:
+	@python3 set_config.py $(DEVICE) relay=false
+
+# Show the current config
+config:
+	@python3 set_config.py $(DEVICE)
+
+# Seconds between readings, accepted from 30 to 7200.
+# Usage: make sleep SLEEP_S=900
+sleep:
+	@python3 set_config.py $(DEVICE) sleep_s=$(SLEEP_S)
 
 
 certs/device.crt:
